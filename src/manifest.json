@@ -1,6 +1,9 @@
 {
   "{{chrome}}.manifest_version": 3,
   "{{firefox}}.manifest_version": 2,
+  "name": "GitLab代码审查助手",
+  "description": "GitLab代码审查AI辅助工具",
+  "version": "1.0.0",
   "icons": {
     "16": "icon/16.png",
     "32": "icon/32.png",
@@ -8,11 +11,34 @@
     "128": "icon/128.png"
   },
   "{{chrome}}.action": {
-    "default_popup": "src/popup.html"
+    "default_popup": "src/popup.html",
+    "default_title": "GitLab代码审查助手"
   },
   "{{firefox}}.browser_action": {
-    "default_popup": "src/popup.html"
+    "default_popup": "src/popup.html",
+    "default_title": "GitLab代码审查助手"
   },
+  "{{chrome}}.options_page": "src/options.html",
+  "{{firefox}}.options_ui": {
+    "page": "src/options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.gitlab.com/*",
+        "*://*/*"
+      ],
+      "js": [
+        "src/content/gitlab-detector.ts"
+      ]
+    }
+  ],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs"
+  ],
   "background": {
     "{{chrome}}.service_worker": "src/background.ts",
     "{{firefox}}.scripts": [
