@@ -66,7 +66,7 @@ const statusList = computed(() => [
     value: isGitLabRef.value,
   },
   {
-    label: '当前为Merge Request页面',
+    label: '当前为MR页面',
     value: isReviewPageRef.value,
   }
 ]);
