@@ -1,4 +1,5 @@
 import browser from "webextension-polyfill";
+import { type DetectorSettings as Settings } from "../types/index.d";
 
 /**
  * GitLab检测器
@@ -53,16 +54,9 @@ const GITLAB_FEATURES = {
   ],
 };
 
-// 检测测试
-interface Settings {
-  enabled: boolean;
-  autoDetect: boolean;
-}
-
 // 默认设置
 const defaultSettings: Settings = {
-  enabled: true,
-  autoDetect: true,
+  isEnable: true,
 };
 
 // 当前设置
@@ -72,7 +66,7 @@ let currentSettings: Settings = { ...defaultSettings };
 async function loadSettings(): Promise<Settings> {
   try {
     const data = await browser.storage.local.get("settings");
-    return data.settings || { ...defaultSettings };
+    return data.settings?.detctor || { ...defaultSettings };
   } catch (error) {
     console.error("加载设置时出错:", error);
     return { ...defaultSettings };
@@ -88,7 +82,7 @@ async function detectGitLab(): Promise<boolean> {
   currentSettings = await loadSettings();
 
   // 如果扩展被禁用，直接返回false
-  if (!currentSettings.enabled) {
+  if (!currentSettings.isEnable) {
     return false;
   }
 
@@ -285,7 +279,7 @@ browser.runtime.onMessage.addListener(async (message) => {
     }
 
     case "settingsUpdated": {
-      currentSettings = message.settings;
+      currentSettings = message.settings?.detctor;
 
       const isGitLab = await detectGitLab();
       const isReviewPage = isCodeReviewPage();

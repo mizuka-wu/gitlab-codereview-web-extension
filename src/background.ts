@@ -1,5 +1,5 @@
 import browser from "webextension-polyfill";
-import { type GitLabDetectionState } from "./types/state.d";
+import { type GitLabDetection, type Settings } from "./types/index.d";
 
 console.log("Gitlab Codereview Web Extension Start!");
 
@@ -14,27 +14,29 @@ browser.runtime.onInstalled.addListener((details) => {
   console.log("扩展已安装或更新:", details);
 
   // 初始化存储
+  const defaultGitlabDetction: GitLabDetection = {
+    isGitLab: false,
+    isReviewPage: false,
+    url: "",
+    title: "",
+    timestamp: Date.now(),
+  };
   browser.storage.local.set({
-    gitlabDetection: {
-      isGitLab: false,
-      isReviewPage: false,
-      url: "",
-      title: "",
-      timestamp: Date.now(),
-    },
+    gitlabDetection: defaultGitlabDetction,
   });
 
   // 初始化设置
-  browser.storage.sync.set({
-    settings: {
-      enabled: true,
-      clients: {
-        ollama: {
-          endpoint: "http://localhost:11434",
-          model: "deepseek-r1",
-        },
-      },
+  const defaultSettings: Settings = {
+    detctor: {
+      isEnable: true,
     },
+    aiAgent: {
+      current: "ollama",
+      aiAgentConfig: {},
+    },
+  };
+  browser.storage.sync.set({
+    settings: defaultSettings,
   });
 });
 
@@ -84,7 +86,7 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
     case "gitlabDetected": {
       if (!tabId) return;
       console.log("收到GitLab检测消息");
-      const detectionState: GitLabDetectionState = {
+      const detectionState: GitLabDetection = {
         isGitLab: message.isGitLab,
         isReviewPage: message.isReviewPage,
         url: message.url,
@@ -107,7 +109,7 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
 });
 
 // 更新扩展图标状态
-async function updateExtensionIcon(tabId: number, state: GitLabDetectionState) {
+async function updateExtensionIcon(tabId: number, state: GitLabDetection) {
   // 根据检测结果更新图标
   if (state.isGitLab) {
     if (state.isReviewPage) {

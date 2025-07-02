@@ -1,15 +1,19 @@
 <script lang="ts" setup>
-console.log("Hello from the popup!");
+import browser from "webextension-polyfill";
+import { type GitLabDetection } from "../types";
 </script>
 
 <template>
-  <div>
-    <img src="/icon/128.png" />
-    <h1>vite-plugin-web-extension</h1>
-    <p>
-      Template: <code>vue-ts</code>
-    </p>
-  </div>
+  <section class="detection-status">
+    <div class="status-item">
+      <span class="label">GitLab页面:</span>
+      <span id="gitlab-status" class="status">检测中...</span>
+    </div>
+    <div class="status-item">
+      <span class="label">代码审查页面:</span>
+      <span id="review-status" class="status">检测中...</span>
+    </div>
+  </section>
 </template>
 
 <style>
@@ -21,41 +25,4 @@ body {
   margin: 0;
 }
 
-body {
-  background-color: rgb(36, 36, 36);
-}
-
-body > div {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  align-items: center;
-  justify-content: center;
-}
-
-img {
-  width: 200px;
-  height: 200px;
-}
-
-h1 {
-  font-size: 18px;
-  color: white;
-  font-weight: bold;
-  margin: 0;
-}
-
-p {
-  color: white;
-  opacity: 0.7;
-  margin: 0;
-}
-
-code {
-  font-size: 12px;
-  padding: 2px 4px;
-  background-color: #ffffff24;
-  border-radius: 2px;
-}
 </style>
