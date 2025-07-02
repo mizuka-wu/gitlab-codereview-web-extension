@@ -34,6 +34,9 @@ browser.runtime.onInstalled.addListener((details) => {
       current: "ollama",
       aiAgentConfig: {},
     },
+    prompt: {
+      template: "",
+    },
   };
   browser.storage.sync.set({
     settings: defaultSettings,
