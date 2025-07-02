@@ -15,6 +15,9 @@ export const AiAgents = ["ollama"] as const;
 export interface DetectorSettings {
   isEnable: boolean;
 }
+export interface PromptSettings {
+  template: string;
+}
 export interface AiAgentSettings {
   current: (typeof AiAgents)[number];
   aiAgentConfig: Partial<{
@@ -22,6 +25,10 @@ export interface AiAgentSettings {
   }>;
 }
 export type Settings<T = Record<string, string>> = {
+  /** 发现页面 */
   detctor: DetectorSettings;
+  /** AiAgent配置 */
   aiAgent: AiAgentSettings;
+  /** 提示词配置 */
+  prompt: PromptSettings;
 };
