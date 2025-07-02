@@ -1,23 +1,47 @@
 <template>
-  <section class="detection-status" v-if="!isSupportAnalysis">
-    <div class="status-item">
-      <span class="label">GitLab页面:</span>
-      <span class="status">{{ isGitLabRef ? '已检测到' : '检测中' }}</span>
+  <NResult size="small" v-if="!isSupportAnalysis" class="detection__container" status="404" title="不支持的页面">
+    <template #icon>
+      <div style="display: flex; flex-direction: row; align-items: center; justify-content: center;">
+        <NTag style="margin: 4px" round :bordered="false" :type="status.value ? 'success' : ''" v-for="status of [
+          {
+            label: 'Gitlab页面', value: isGitLabRef,
+          },
+          {
+            label: 'Merge Request页面', value: isReviewPageRef,
+          }
+        ]" :key="status.label">
+          {{ status.label }}
+          <template #icon>
+            <NIcon v-if="status.value" :component="CheckmarkCircle" />
+          </template>
+        </NTag>
+      </div>
+    </template>
+  </NResult>
+  <div v-else>11</div>
+  <section class="actions">
+    <div class="actions__analysis" v-if="isSupportAnalysis">
+      <NButton type="primary">
+        开始分析
+      </NButton>
     </div>
-    <div class="status-item">
-      <span class="label">代码审查页面:</span>
-      <span class="status">{{ isReviewPageRef ? '已检测到' : '检测中' }}</span>
+    <div>
+      <NButton @click="browser.runtime.openOptionsPage()">
+        设置
+      </NButton>
     </div>
   </section>
-  <section v-else>
-    111
-  </section>
+  <footer>
+    <div class="version">版本 1.0.0</div>
+  </footer>
 </template>
 
 <script lang="ts" setup>
 import browser from "webextension-polyfill";
 import { ref, computed, onMounted, onBeforeMount, onBeforeUnmount, onBeforeUpdate } from 'vue'
 import { type GitLabDetection } from "../types";
+import { NResult, NButton, NTag, NIcon, NSwitch, NCard, NDescriptions, NDescriptionsItem } from 'naive-ui';
+import { CheckmarkCircle, Square } from '@vicons/ionicons5';
 
 // detection检测部分
 const isGitLabRef = ref<boolean>(false);
@@ -74,12 +98,39 @@ onBeforeUnmount(() => {
 
 </script>
 
-<style>
+<style lang="scss">
 html,
 body {
   width: 300px;
-  height: 400px;
-  padding: 0;
+  max-height: 400px;
+  padding: 8px;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.detection__container {
+  margin-bottom: 32px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: row;
+  margin-top: 8px;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  max-width: 180px;
+
+  &__analysis {
+    flex: 1;
+    margin-right: 8px;
+
+    &>button {
+      width: 100%;
+    }
+  }
 }
 </style>
