@@ -57,9 +57,6 @@
         <div class="form-group">
           <textarea v-model="settings.prompt.template" class="form-control prompt-textarea" placeholder="请输入提示词模板"
             rows="10"></textarea>
-          <small class="form-text">
-            可用变量: {{ context }}, {{ language }}, {{ diff }}
-          </small>
         </div>
       </div>
 
@@ -74,8 +71,8 @@
 <script lang="ts" setup>
 import browser from "webextension-polyfill";
 import { ref, onMounted } from 'vue';
-import { DEFAUTL_PROMPT } from '../constants';
-import type { Settings, AiAgents } from '../types';
+import { DEFAUTL_PROMPT, AiAgents } from '../constants';
+import type { Settings } from '../types';
 
 const settings = ref<Settings>({
   detctor: {
