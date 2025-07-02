@@ -4,7 +4,7 @@
       <h1 class="app-title">GitLab 代码审查助手</h1>
       <p class="app-subtitle">高效代码审查，提升开发效率</p>
     </div>
-    <NCard size="small" class="status-card" :bordered="false">
+    <NCard size="small" class="status-card" :bordered="false" v-if="!isSupportAnalysis">
       <template #header>
         <div class="status-header">
           <h3 class="status-title">页面状态检测</h3>
@@ -33,7 +33,7 @@
     </NCard>
 
     <div class="actions">
-      <NButton type="primary" :disabled="!isSupportAnalysis" class="action-button"
+      <NButton type="primary" v-if="isSupportAnalysis" :disabled="!isSupportAnalysis" class="action-button"
         :class="{ 'is-active': isSupportAnalysis }">
         开始分析
       </NButton>
