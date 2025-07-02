@@ -16,7 +16,7 @@
 
 <script lang="ts" setup>
 import browser from "webextension-polyfill";
-import { ref, computed, onMounted, onBeforeMount, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeMount, onBeforeUnmount, onBeforeUpdate } from 'vue'
 import { type GitLabDetection } from "../types";
 
 // detection检测部分
@@ -61,6 +61,10 @@ async function initPopup() {
   }
 }
 onBeforeMount(() => {
+  document.addEventListener("DOMContentLoaded", initPopup);
+})
+onBeforeUpdate(() => {
+  document.removeEventListener("DOMContentLoaded", initPopup);
   document.addEventListener("DOMContentLoaded", initPopup);
 })
 onBeforeUnmount(() => {
