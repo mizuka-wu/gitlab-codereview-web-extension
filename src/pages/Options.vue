@@ -242,11 +242,13 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid var(--n-divider-color);
+  justify-content: center;
+  flex-direction: column;
 }
 
 .logo {
-  width: 24px;
-  height: 24px;
+  width: 128px;
+  height: 128px;
 }
 
 .content {
