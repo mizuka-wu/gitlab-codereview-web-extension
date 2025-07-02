@@ -1,11 +1,5 @@
 <template>
   <NLayout class="options-container">
-    <!-- 提示信息 -->
-    <NAlert v-if="alert.show" :title="alert.title" :type="alert.type" :closable="true" @close="alert.show = false"
-      class="alert-message">
-      {{ alert.message }}
-    </NAlert>
-
     <NLayoutHeader class="header">
       <img src="/icon/active/128.png" class="logo" />
       <NH1>GitLab 代码审查助手</NH1>
@@ -75,7 +69,6 @@ import {
   NLayoutHeader,
   NLayoutContent,
   NCard,
-  NMessageProvider,
   NSpace,
   NSwitch,
   NFormItem,
@@ -84,37 +77,12 @@ import {
   NSelect,
   NText,
   NH1,
-  NAlert,
   useMessage
 } from 'naive-ui';
 import { DEFAUTL_PROMPT } from '../constants';
 import type { Settings } from '../types';
 
-// 提示信息状态
-const alert = ref({
-  show: false,
-  title: '',
-  message: '',
-  type: 'info' as 'info' | 'success' | 'warning' | 'error'
-});
-
 const message = useMessage();
-
-// 显示提示信息
-const showAlert = (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info', title: string = '提示') => {
-  alert.value = {
-    show: true,
-    title,
-    message,
-    type
-  };
-  // 3秒后自动隐藏
-  if (type !== 'error') {
-    setTimeout(() => {
-      alert.value.show = false;
-    }, 3000);
-  }
-};
 
 // 设置数据
 const settings = ref<Settings>({
@@ -158,10 +126,10 @@ const saveSettings = async () => {
   try {
     isSaving.value = true;
     await browser.storage.sync.set({ settings: settings.value });
-    showAlert('设置已保存', 'success');
+    message.success('设置已保存');
   } catch (error) {
     console.error('保存设置失败:', error);
-    showAlert('保存失败，请重试', 'error');
+    message.error('保存失败，请重试');
   } finally {
     isSaving.value = false;
   }
@@ -170,7 +138,7 @@ const saveSettings = async () => {
 // 重置提示词
 const resetPrompt = () => {
   settings.value.prompt.template = DEFAUTL_PROMPT;
-  showAlert('已恢复默认提示词', 'success');
+  message.success('已恢复默认提示词');
 };
 
 // 重置所有设置
@@ -184,10 +152,10 @@ const resetSettings = async () => {
         template: DEFAUTL_PROMPT
       }
     };
-    showAlert('已恢复默认设置', 'success');
+    message.success('已恢复默认设置');
   } catch (error) {
     console.error('重置设置失败:', error);
-    showAlert('重置失败，请重试', 'error');
+    message.error('重置失败，请重试');
   } finally {
     isSaving.value = false;
   }
@@ -214,7 +182,7 @@ const loadSettings = async () => {
     }
   } catch (error) {
     console.error('加载设置失败:', error);
-    showAlert('加载设置失败', 'error');
+    message.error('加载设置失败');
   }
 };
 
@@ -228,19 +196,6 @@ onMounted(() => {
 .options-container {
   min-height: 100vh;
   background-color: var(--n-color);
-}
-
-.alert-message {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  /* top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 600px; */
-  z-index: 1000;
-  box-shadow: 0 3px 6px -4px #0000001f, 0 6px 16px #00000014, 0 9px 28px 8px #0000000d;
 }
 
 .header {
