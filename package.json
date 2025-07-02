@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@vicons/ionicons5": "^0.13.0",
+    "axios": "^1.10.0",
+    "camelcase": "^8.0.0",
     "markdown-it": "^14.1.0",
     "naive-ui": "^2.42.0",
     "vue": "^3.3"

@@ -1,85 +1,102 @@
 <template>
-  <div class="options-container">
-    <header class="header">
-      <img src="/icon/active/128.png" class="logo" />
-      <h1>GitLab 代码审查助手</h1>
-    </header>
+  <n-message-provider>
+    <n-layout class="options-container">
+      <n-layout-header class="header">
+        <img src="/icon/active/128.png" class="logo" />
+        <n-h1>GitLab 代码审查助手</n-h1>
+      </n-layout-header>
 
-    <main class="main-content">
-      <!-- 检测设置 -->
-      <div class="settings-section">
-        <h2>检测设置</h2>
-        <div class="form-group">
-          <label class="switch">
-            <input type="checkbox" v-model="settings.detctor.isEnable">
-            <span class="slider round"></span>
-          </label>
-          <span class="switch-label">启用页面检测</span>
-        </div>
-      </div>
+      <n-layout-content class="main-content">
+        <!-- 检测设置 -->
+        <n-card title="检测设置" class="settings-section">
+          <n-space vertical>
+            <n-switch v-model:value="settings.detctor.isEnable" />
+            <span>启用页面检测</span>
+          </n-space>
+        </n-card>
 
-      <!-- AI 代理设置 -->
-      <div class="settings-section">
-        <h2>AI 代理设置</h2>
+        <!-- AI 代理设置 -->
+        <n-card title="AI 代理设置" class="settings-section">
+          <n-space vertical>
+            <n-form-item label="AI 代理">
+              <n-select v-model:value="settings.aiAgent.current" :options="aiAgentOptions" style="width: 200px" />
+            </n-form-item>
 
-        <div class="form-group">
-          <label>AI 代理</label>
-          <select v-model="settings.aiAgent.current" class="form-control">
-            <option v-for="agent in AiAgents" :key="agent" :value="agent">
-              {{ formatAgentName(agent) }}
-            </option>
-          </select>
-        </div>
+            <template v-if="settings.aiAgent.current === 'ollama'">
+              <n-form-item label="Ollama 地址">
+                <n-input v-model:value="settings.aiAgent.aiAgentConfig.ollama.endpoint"
+                  placeholder="http://localhost:11434" @update:value="ensureOllamaConfig" />
+                <template #suffix>
+                  <n-text depth="3" style="font-size: 12px">Ollama 服务器地址</n-text>
+                </template>
+              </n-form-item>
 
-        <div v-if="settings.aiAgent.current === 'ollama'" class="ai-config">
-          <div class="form-group">
-            <label>Ollama 地址</label>
-            <input type="text" v-model="settings.aiAgent.aiAgentConfig.ollama.endpoint"
-              placeholder="http://localhost:11434" class="form-control" @input="ensureOllamaConfig()">
-            <small class="form-text">Ollama 服务器地址</small>
-          </div>
+              <n-form-item label="模型名称">
+                <n-input v-model:value="settings.aiAgent.aiAgentConfig.ollama.model" placeholder="llama3"
+                  @update:value="ensureOllamaConfig" />
+                <template #suffix>
+                  <n-text depth="3" style="font-size: 12px">要使用的模型名称</n-text>
+                </template>
+              </n-form-item>
+            </template>
+          </n-space>
+        </n-card>
 
-          <div class="form-group">
-            <label>模型名称</label>
-            <input type="text" v-model="settings.aiAgent.aiAgentConfig.ollama.model" placeholder="llama3"
-              class="form-control" @input="ensureOllamaConfig()">
-            <small class="form-text">要使用的模型名称</small>
-          </div>
-        </div>
-      </div>
+        <!-- 提示词设置 -->
+        <n-card class="settings-section">
+          <template #header>
+            <n-space justify="space-between" align="center">
+              <n-h2 style="margin: 0">提示词设置</n-h2>
+              <n-button @click="resetPrompt" size="small" type="default">恢复默认</n-button>
+            </n-space>
+          </template>
+          <n-input v-model:value="settings.prompt.template" type="textarea" placeholder="请输入提示词模板"
+            :autosize="{ minRows: 10 }" />
+        </n-card>
 
-      <!-- 提示词设置 -->
-      <div class="settings-section">
-        <div class="section-header">
-          <h2>提示词设置</h2>
-          <button @click="resetPrompt" class="btn btn-sm btn-outline">恢复默认</button>
-        </div>
-        <div class="form-group">
-          <textarea v-model="settings.prompt.template" class="form-control prompt-textarea" placeholder="请输入提示词模板"
-            rows="10"></textarea>
-        </div>
-      </div>
-
-      <!-- 保存按钮 -->
-      <div class="actions">
-        <button @click="saveSettings" class="btn btn-primary">保存设置</button>
-        <span id="status" class="status-message"></span>
-      </div>
-    </main>
-  </div>
+        <!-- 保存按钮 -->
+        <n-space justify="end" class="actions">
+          <n-button type="primary" @click="saveSettings">保存设置</n-button>
+          <n-text v-if="saveStatus.message" :type="saveStatus.type">
+            {{ saveStatus.message }}
+          </n-text>
+        </n-space>
+      </n-layout-content>
+    </n-layout>
+  </n-message-provider>
 </template>
 <script lang="ts" setup>
 import browser from "webextension-polyfill";
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, h } from 'vue';
+import {
+  NLayout,
+  NLayoutHeader,
+  NLayoutContent,
+  NCard,
+  NSpace,
+  NSwitch,
+  NFormItem,
+  NInput,
+  NButton,
+  NSelect,
+  NText,
+  NH1,
+  NH2,
+  NMessageProvider,
+  useMessage
+} from 'naive-ui';
 import { DEFAUTL_PROMPT, AiAgents } from '../constants';
 import type { Settings } from '../types';
+
+const message = useMessage();
+const saveStatus = ref({ message: '', type: 'success' });
 
 const settings = ref<Settings>({
   detctor: {
     isEnable: true,
   },
   aiAgent: {
-    current: 'ollama', // 使用 AiAgents 中的第一个值作为默认值
+    current: 'ollama',
     aiAgentConfig: {
       ollama: {
         endpoint: '',
@@ -91,6 +108,11 @@ const settings = ref<Settings>({
     template: '',
   },
 });
+
+const aiAgentOptions = AiAgents.map(agent => ({
+  label: formatAgentName(agent),
+  value: agent
+}));
 
 // 确保 ollama 配置存在
 const ensureOllamaConfig = () => {
@@ -126,24 +148,37 @@ const loadSettings = async () => {
 const saveSettings = async () => {
   try {
     await browser.storage.sync.set({ settings: settings.value });
-    // 显示保存成功提示
-    const status = document.getElementById('status');
-    if (status) {
-      status.textContent = '设置已保存';
-      setTimeout(() => {
-        status.textContent = '';
-      }, 2000);
-    }
+    saveStatus.value = {
+      message: '设置已保存',
+      type: 'success'
+    };
+    message.success('设置已保存');
+    setTimeout(() => {
+      saveStatus.value.message = '';
+    }, 2000);
   } catch (error) {
     console.error('保存设置失败:', error);
+    saveStatus.value = {
+      message: '保存失败，请重试',
+      type: 'error'
+    };
+    message.error('保存失败，请重试');
   }
 };
 
 // 重置为默认提示词
 const resetPrompt = () => {
-  if (confirm('确定要重置为默认提示词吗？')) {
-    settings.value.prompt.template = DEFAUTL_PROMPT;
-  }
+  const d = window.$dialog.warning({
+    title: '确认重置',
+    content: '确定要重置为默认提示词吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      settings.value.prompt.template = DEFAUTL_PROMPT;
+      message.success('已重置为默认提示词');
+      d.destroy();
+    }
+  });
 };
 
 // 格式化代理名称显示
@@ -157,34 +192,20 @@ onMounted(() => {
 });
 </script>
 
-<style>
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html,
-body {
-  width: 100%;
-  min-height: 100%;
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  line-height: 1.5;
-}
-
+<style scoped>
 .options-container {
-  max-width: 600px;
+  max-width: 800px;
   margin: 0 auto;
   padding: 1.5rem;
+  min-height: 100vh;
+  background-color: var(--n-color-embedded);
 }
 
 .header {
   text-align: center;
   margin-bottom: 2rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--n-divider-color);
 }
 
 .header .logo {
@@ -193,201 +214,21 @@ body {
   margin-bottom: 0.5rem;
 }
 
-.header h1 {
-  font-size: 1.5rem;
-  color: var(--text-color);
-  margin: 0;
-}
-
 .settings-section {
-  background: white;
-  border-radius: var(--radius);
-  padding: 1.5rem;
   margin-bottom: 1.5rem;
-  box-shadow: var(--shadow);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
 }
 
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-h2 {
-  font-size: 1.25rem;
-  color: var(--text-color);
-  margin: 0 0 1rem 0;
-}
-
-.form-group {
-  margin-bottom: 1.25rem;
-}
-
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: var(--text-color);
-}
-
-.form-control {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  font-size: 1rem;
-  line-height: 1.5;
-  color: var(--text-color);
-  background-color: #fff;
-  background-clip: padding-box;
-  border: 1px solid var(--border-color);
-  border-radius: 0.375rem;
-  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-
-.form-control:focus {
-  border-color: var(--primary-color);
-  outline: 0;
-  box-shadow: 0 0 0 3px rgba(90, 103, 216, 0.2);
-}
-
-.prompt-textarea {
-  min-height: 200px;
-  resize: vertical;
-}
-
-.form-text {
-  display: block;
-  margin-top: 0.25rem;
-  color: #6b7280;
-  font-size: 0.875rem;
-}
-
-/* 开关样式 */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 24px;
-  margin-right: 10px;
-  vertical-align: middle;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
-  border-radius: 24px;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 16px;
-  width: 16px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  transition: .4s;
-  border-radius: 50%;
-}
-
-input:checked+.slider {
-  background-color: var(--primary-color);
-}
-
-input:focus+.slider {
-  box-shadow: 0 0 1px var(--primary-color);
-}
-
-input:checked+.slider:before {
-  transform: translateX(26px);
-}
-
-.switch-label {
-  vertical-align: middle;
-  font-weight: normal;
-}
-
-/* 按钮样式 */
-.btn {
-  display: inline-block;
-  font-weight: 500;
-  text-align: center;
-  white-space: nowrap;
-  vertical-align: middle;
-  user-select: none;
-  border: 1px solid transparent;
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  border-radius: 0.375rem;
-  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
-    border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-  cursor: pointer;
-}
-
-.btn-primary {
-  color: #fff;
-  background-color: var(--primary-color);
-  border-color: var(--primary-color);
-}
-
-.btn-primary:hover {
-  background-color: var(--primary-hover);
-  border-color: var(--primary-hover);
-}
-
-.btn-outline {
-  color: var(--primary-color);
-  background-color: transparent;
-  border: 1px solid var(--primary-color);
-}
-
-.btn-outline:hover {
-  background-color: rgba(90, 103, 216, 0.1);
-}
-
-.btn-sm {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  border-radius: 0.25rem;
-}
-
-/* 操作区域 */
 .actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 1rem;
   margin-top: 1.5rem;
-}
-
-.status-message {
-  color: var(--success-color);
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: opacity 0.3s ease;
+  padding: 1rem 0;
+  border-top: 1px solid var(--n-divider-color);
 }
 
 /* 响应式调整 */
 @media (max-width: 640px) {
   .options-container {
-    padding: 1rem;
-  }
-
-  .settings-section {
     padding: 1rem;
   }
 }

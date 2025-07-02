@@ -33,7 +33,7 @@
     </NCard>
 
     <div class="actions">
-      <NButton type="primary" v-if="isSupportAnalysis" :disabled="!isSupportAnalysis" class="action-button"
+      <NButton type="primary" :disabled="!isSupportAnalysis" class="action-button"
         :class="{ 'is-active': isSupportAnalysis }">
         开始分析
       </NButton>
@@ -278,10 +278,16 @@ onBeforeUnmount(() => {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--n-divider-color);
+  width: 100%;
 }
 
 .actions .n-button {
   min-width: 100px;
+  flex: 1;
+
+  &:nth-child(1) {
+    flex: 2;
+  }
 }
 
 .footer {
