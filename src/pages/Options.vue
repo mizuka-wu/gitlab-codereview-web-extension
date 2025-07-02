@@ -75,6 +75,7 @@ import {
   NLayoutHeader,
   NLayoutContent,
   NCard,
+  NMessageProvider,
   NSpace,
   NSwitch,
   NFormItem,
@@ -83,7 +84,8 @@ import {
   NSelect,
   NText,
   NH1,
-  NAlert
+  NAlert,
+  useMessage
 } from 'naive-ui';
 import { DEFAUTL_PROMPT } from '../constants';
 import type { Settings } from '../types';
@@ -95,6 +97,8 @@ const alert = ref({
   message: '',
   type: 'info' as 'info' | 'success' | 'warning' | 'error'
 });
+
+const message = useMessage();
 
 // 显示提示信息
 const showAlert = (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info', title: string = '提示') => {
@@ -228,10 +232,13 @@ onMounted(() => {
 
 .alert-message {
   position: fixed;
-  top: 20px;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  max-width: 600px;
+  max-width: 600px; */
   z-index: 1000;
   box-shadow: 0 3px 6px -4px #0000001f, 0 6px 16px #00000014, 0 9px 28px 8px #0000000d;
 }
