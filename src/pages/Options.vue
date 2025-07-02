@@ -72,6 +72,7 @@
   </div>
 </template>
 <script lang="ts" setup>
+import browser from "webextension-polyfill";
 import { ref, onMounted } from 'vue';
 import { DEFAUTL_PROMPT } from '../constants';
 import type { Settings, AiAgents } from '../types';
@@ -160,18 +161,6 @@ onMounted(() => {
 </script>
 
 <style>
-:root {
-  --primary-color: #5a67d8;
-  --primary-hover: #4c51bf;
-  --bg-color: #f8fafc;
-  --text-color: #1a202c;
-  --border-color: #e2e8f0;
-  --success-color: #48bb78;
-  --error-color: #f56565;
-  --radius: 8px;
-  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-}
-
 * {
   box-sizing: border-box;
   margin: 0;
