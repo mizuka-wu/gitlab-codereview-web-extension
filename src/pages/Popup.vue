@@ -86,10 +86,19 @@ function updateStatus(detectionState: GitLabDetection) {
 
 // task
 const task = ref<AnalysisTask | null>(null);
-function analysis() {
+async function analysis() {
   if (task.value) return;
+  
+  // 获取当前活动标签页的URL
+  const tabs = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+  const currentTab = tabs[0];
+  const mergeRequestUrl = currentTab?.url || "";
+  
   task.value = {
-    mergeRequestUrl: "",
+    mergeRequestUrl,
     uuid: uuid(),
     status: "pending",
   }

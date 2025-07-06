@@ -30,7 +30,7 @@
         "*://*/*"
       ],
       "js": [
-        "src/content/gitlab-detector.ts"
+        "src/content/index.ts"
       ]
     }
   ],
