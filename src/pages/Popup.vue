@@ -32,7 +32,7 @@
       </template>
     </NCard>
 
-    <Task v-model="task" v-if="task" />
+    <Task v-model="task" v-if="task" :key="task.uuid" />
     <div class="actions" v-else>
       <NButton @click="analysis" type="primary" :disabled="!isSupportAnalysis" class="action-button"
         :class="{ 'is-active': isSupportAnalysis }">
@@ -50,6 +50,7 @@
 </template>
 
 <script lang="ts" setup>
+import { v4 as uuid } from 'uuid';
 import browser from "webextension-polyfill";
 import { ref, computed, onMounted, onBeforeMount, onBeforeUnmount, onBeforeUpdate } from 'vue'
 import { NResult, NButton, NTag, NIcon, NSwitch, NCard, NDescriptions, NDescriptionsItem } from 'naive-ui';
@@ -89,7 +90,7 @@ function analysis() {
   if (task.value) return;
   task.value = {
     mergeRequestUrl: "",
-    uuid: "",
+    uuid: uuid(),
     status: "pending",
   }
 }
