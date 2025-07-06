@@ -482,12 +482,10 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
         
         console.log('获取到的合并请求信息:', { realMrId, diffHeadSha });
         
-        // 根据用户提供的成功 curl 命令修改 URL
-        // 使用完整的 URL 路径: noteable/merge_request/{id}/notes
-        // 例如: https://jihulab.com/mizuka-wu1/gitlab-codereview-web-extension/noteable/merge_request/803142/notes
+        // 使用 discussions API 而不是 notes API
         let url = '';
         
-        // 如果有原始的 mrUrl，使用它来构建正确的 URL
+        // 构建 discussions API URL
         if (message.mrUrl) {
           console.log('使用原始 mrUrl 构建 API URL:', message.mrUrl);
           const mrUrlObj = new URL(message.mrUrl);
@@ -498,12 +496,12 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
                                               pathParts.indexOf('-') : 
                                               pathParts.indexOf('merge_requests'));
           
-          // 构建新的 URL
-          url = `${mrUrlObj.protocol}//${mrUrlObj.host}${projectPath.join('/')}/notes?target_id=${realMrId}&target_type=merge_request`;
+          // 构建 discussions API URL
+          url = `${mrUrlObj.protocol}//${mrUrlObj.host}/api/v4/projects/${encodeURIComponent(projectPath.join('/').replace(/^\//, ''))}/merge_requests/${message.mrIId}/discussions`;
         } else {
           // 如果没有 mrUrl，使用原来的方式
           const projectRoot = message.host.replace(/\/-\/merge_requests\/\d+(\/diffs)?$/, '');
-          url = `${projectRoot}/notes?target_id=${realMrId}&target_type=merge_request`;
+          url = `${projectRoot}/api/v4/projects/${encodeURIComponent(message.projectPath)}/merge_requests/${message.mrIId}/discussions`;
         }
         
         console.log('构建的 API URL:', url);
@@ -621,37 +619,32 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
         
         console.log('构建的 line_code:', lineCode);
         
-        // 根据成功的 curl 命令构建完整的请求数据结构
-        const notesData = {
-          view: "inline",
-          line_type: "old",
-          merge_request_diff_head_sha: diffHeadSha,
-          in_reply_to_discussion_id: "",
-          note_project_id: "",
-          target_type: "merge_request",
-          target_id: realMrId,
-          return_discussion: true,
-          note: {
-            note: noteContent,
-            position: JSON.stringify(position),
-            noteable_type: "MergeRequest",
-            noteable_id: realMrId,
-            commit_id: null,
-            type: "DiffNote",
-            line_code: lineCode
+        // 使用 discussions API 格式构建请求数据
+        const discussionsData = {
+          body: noteContent,
+          position: {
+            base_sha: position.base_sha || mrData.diff_refs?.base_sha || diffHeadSha,
+            start_sha: position.start_sha || mrData.diff_refs?.start_sha || diffHeadSha,
+            head_sha: diffHeadSha,
+            position_type: "text",
+            new_path: position.new_path,
+            new_line: position.new_line,
+            old_path: position.old_path || position.new_path,
+            old_line: position.old_line,
+            line_range: position.line_range
           }
         };
       
       console.log('提交评论请求:', {
         url,
-        notesData
+        discussionsData
       });
       
       // 使用 handleApiRequest 发送请求
       return handleApiRequest({
         method: 'POST',
         url,
-        data: notesData,
+        data: discussionsData,
         headers: {
           'X-CSRF-Token': csrfToken || '',
           'X-Requested-With': 'XMLHttpRequest'
