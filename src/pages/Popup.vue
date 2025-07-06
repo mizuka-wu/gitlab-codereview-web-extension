@@ -32,8 +32,9 @@
       </template>
     </NCard>
 
-    <div class="actions">
-      <NButton type="primary" :disabled="!isSupportAnalysis" class="action-button"
+    <Task v-model="task" v-if="task" />
+    <div class="actions" v-else>
+      <NButton @click="analysis" type="primary" :disabled="!isSupportAnalysis" class="action-button"
         :class="{ 'is-active': isSupportAnalysis }">
         开始分析
       </NButton>
@@ -51,9 +52,10 @@
 <script lang="ts" setup>
 import browser from "webextension-polyfill";
 import { ref, computed, onMounted, onBeforeMount, onBeforeUnmount, onBeforeUpdate } from 'vue'
-import { type GitLabDetection } from "../types";
 import { NResult, NButton, NTag, NIcon, NSwitch, NCard, NDescriptions, NDescriptionsItem } from 'naive-ui';
 import { CheckmarkCircle, Square, InformationCircle as InfoCircle } from '@vicons/ionicons5';
+import Task from './popup/Task.vue';
+import { type GitLabDetection, type AnalysisTask } from "../types";
 
 // detection检测部分
 const isGitLabRef = ref<boolean>(false);
@@ -79,6 +81,17 @@ function updateStatus(detectionState: GitLabDetection) {
   isGitLabRef.value = isGitLab;
   isReviewPageRef.value = isReviewPage;
   isLoading.value = false;
+}
+
+// task
+const task = ref<AnalysisTask | null>(null);
+function analysis() {
+  if (task.value) return;
+  task.value = {
+    mergeRequestUrl: "",
+    uuid: "",
+    status: "pending",
+  }
 }
 
 

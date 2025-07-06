@@ -32,3 +32,5 @@ export type Settings<T = Record<string, string>> = {
   /** 提示词配置 */
   prompt: PromptSettings;
 };
+
+export * from "./task/index.d";
