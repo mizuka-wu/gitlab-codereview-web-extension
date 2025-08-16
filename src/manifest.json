@@ -34,10 +34,21 @@
       ]
     }
   ],
-  "permissions": [
+  "{{chrome}}.permissions": [
     "activeTab",
     "storage",
     "tabs"
+  ],
+  "{{chrome}}.host_permissions": [
+    "http://localhost:11434/*",
+    "https://localhost:11434/*"
+  ],
+  "{{firefox}}.permissions": [
+    "activeTab",
+    "storage",
+    "tabs",
+    "http://localhost:11434/*",
+    "https://localhost:11434/*"
   ],
   "background": {
     "{{chrome}}.service_worker": "src/background.ts",

@@ -268,18 +268,6 @@ async function runAnalysisTask() {
     }
 }
 
-// 模拟 AI 分析
-async function mockAIAnalysis(diff: string): Promise<string> {
-    // 这里模拟AI分析过程，实际项目中需要调用真实的AI客户端
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            // 确保评论内容不为空
-            const message = `这是对代码变更的分析结果。这里是模拟的AI分析内容，实际项目中需要替换为真实的AI分析结果。文件路径: ${diff.substring(0, 50)}...`;
-            resolve(message);
-        }, 1000);
-    });
-}
-
 // 在组件挂载时，如果任务状态是pending，自动开始分析
 onMounted(() => {
     if (task.value && task.value.status === 'pending') {

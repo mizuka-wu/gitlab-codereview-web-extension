@@ -1,5 +1,4 @@
 import browser from "webextension-polyfill";
-import { v4 as uuid } from 'uuid';
 
 /**
  * GitLab 管理器代理类
