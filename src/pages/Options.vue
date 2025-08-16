@@ -21,16 +21,14 @@
 
           <template v-if="settings.aiAgent.current === 'ollama'">
             <NFormItem label="Ollama 地址">
-              <NInput v-model:value="settings.aiAgent.aiAgentConfig.ollama.endpoint"
-                placeholder="http://localhost:11434" @update:value="ensureOllamaConfig" />
+              <NInput v-model:value="ollamaEndpoint" placeholder="http://localhost:11434" />
               <template #suffix>
                 <NText depth="3" style="font-size: 12px">Ollama 服务器地址</NText>
               </template>
             </NFormItem>
 
             <NFormItem label="模型名称">
-              <NInput v-model:value="settings.aiAgent.aiAgentConfig.ollama.model" placeholder="llama3"
-                @update:value="ensureOllamaConfig" />
+              <NInput v-model:value="ollamaModel" placeholder="llama3" />
               <template #suffix>
                 <NText depth="3" style="font-size: 12px">要使用的模型名称</NText>
               </template>
@@ -63,7 +61,7 @@
 
 <script lang="ts" setup>
 import browser from "webextension-polyfill";
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import {
   NLayout,
   NLayoutHeader,
@@ -121,11 +119,37 @@ const ensureOllamaConfig = () => {
   }
 };
 
+// 通过 computed 代理避免模板中的可选链导致的类型报错
+const ollamaEndpoint = computed({
+  get: () => settings.value.aiAgent.aiAgentConfig.ollama?.endpoint ?? 'http://localhost:11434',
+  set: (v: string) => {
+    ensureOllamaConfig();
+    settings.value.aiAgent.aiAgentConfig.ollama!.endpoint = v;
+  }
+});
+
+const ollamaModel = computed({
+  get: () => settings.value.aiAgent.aiAgentConfig.ollama?.model ?? 'llama3',
+  set: (v: string) => {
+    ensureOllamaConfig();
+    settings.value.aiAgent.aiAgentConfig.ollama!.model = v;
+  }
+});
+
 // 保存设置
 const saveSettings = async () => {
   try {
     isSaving.value = true;
     await browser.storage.sync.set({ settings: settings.value });
+    // 广播设置更新，通知所有标签页与内容脚本
+    try {
+      await browser.runtime.sendMessage({
+        action: 'settingsUpdated',
+        settings: settings.value,
+      });
+    } catch (e) {
+      console.warn('广播设置更新失败（可忽略）:', e);
+    }
     message.success('设置已保存');
   } catch (error) {
     console.error('保存设置失败:', error);
@@ -152,6 +176,16 @@ const resetSettings = async () => {
         template: DEFAUTL_PROMPT
       }
     };
+    await browser.storage.sync.set({ settings: settings.value });
+    // 广播设置更新
+    try {
+      await browser.runtime.sendMessage({
+        action: 'settingsUpdated',
+        settings: settings.value,
+      });
+    } catch (e) {
+      console.warn('广播设置更新失败（可忽略）:', e);
+    }
     message.success('已恢复默认设置');
   } catch (error) {
     console.error('重置设置失败:', error);

@@ -63,6 +63,7 @@ import { NButton, NIcon } from 'naive-ui';
 import { CheckmarkCircle, AlertCircle, Code as CodeOutline, ChevronDown, ChevronUp } from '@vicons/ionicons5';
 import type { AnalysisTask } from '../../types/index';
 import GitlabProxyManager from '../../task/gitlab-proxy';
+import { generateReview } from '../../task/agent';
 
 const task = defineModel<AnalysisTask | null>();
 const progress = ref(0);
@@ -74,6 +75,38 @@ const showDebug = ref(false);
 // 切换调试信息显示
 function toggleDebug() {
     showDebug.value = !showDebug.value;
+}
+
+// 简单根据文件扩展名猜测编程语言
+function guessLanguage(filePath: string): string {
+    const ext = (filePath.split('.').pop() || '').toLowerCase();
+    switch (ext) {
+        case 'ts': return 'TypeScript';
+        case 'tsx': return 'TSX';
+        case 'js': return 'JavaScript';
+        case 'jsx': return 'JSX';
+        case 'vue': return 'Vue';
+        case 'py': return 'Python';
+        case 'java': return 'Java';
+        case 'kt': return 'Kotlin';
+        case 'go': return 'Go';
+        case 'rs': return 'Rust';
+        case 'rb': return 'Ruby';
+        case 'php': return 'PHP';
+        case 'cs': return 'C#';
+        case 'cpp':
+        case 'cc':
+        case 'cxx': return 'C++';
+        case 'c': return 'C';
+        case 'h': return 'C/C Header';
+        case 'css': return 'CSS';
+        case 'scss': return 'SCSS';
+        case 'md': return 'Markdown';
+        case 'yaml':
+        case 'yml': return 'YAML';
+        case 'json': return 'JSON';
+        default: return '';
+    }
 }
 
 // 计算任务状态对应的样式和文本
@@ -166,10 +199,14 @@ async function runAnalysisTask() {
         for (let i = 0; i < changes.length; i++) {
             const change = changes[i];
             progress.value = 30 + Math.floor((i / changes.length) * 60);
-            progressText.value = `正在分析 ${i + 1}/${changes.length}: ${change.newPath}`;
+            progressText.value = `正在分析 ${i + 1}/${changes.length}: ${change.new_path}`;
 
-            // 这里模拟AI分析，实际项目中需要调用AI客户端
-            const message = await mockAIAnalysis(change.diff);
+            // 使用真实 AI 调用生成代码审查内容
+            const message = await generateReview({
+                diff: change.diff,
+                language: guessLanguage(change.new_path || change.old_path || ''),
+                context: ''
+            });
 
             // 通过代理提交评论
             await gitlabManager.codeReview({
