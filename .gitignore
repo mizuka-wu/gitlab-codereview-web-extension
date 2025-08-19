@@ -26,3 +26,6 @@ dist-ssr
 # Config files
 .webextrc
 .webextrc.*
+
+# Dev browser user data directory (persist cookies for dev browser)
+.webext-profile/
