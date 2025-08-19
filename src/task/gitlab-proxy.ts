@@ -130,7 +130,8 @@ export default class GitlabProxyManager {
     body: string;
     ref?: string;
   }) {
-    console.log('提交评论参数:', { newPath, newLine, oldPath, oldLine, body, ref });
+    const sanitizedBody = this.stripThinkTags(body);
+    console.log('提交评论参数:', { newPath, newLine, oldPath, oldLine, body: sanitizedBody, ref });
     
     // 获取当前页面上的 MR 信息
     let diffHeadSha = '';
@@ -259,7 +260,7 @@ export default class GitlabProxyManager {
 
     // 根据成功的 curl 命令简化数据结构
     const data = {
-      note: body, // 使用 body 参数作为 note 字段的值
+      note: sanitizedBody, // 使用清洗后的 body 作为 note 字段的值
       position: JSON.stringify(position),
       line_code: lineCode,
       merge_request_diff_head_sha: diffHeadSha
@@ -288,6 +289,18 @@ export default class GitlabProxyManager {
   }
 
   /**
+   * 移除模型返回中的 <think>...</think> 思考内容
+   */
+  private stripThinkTags(input: string): string {
+    if (!input) return '';
+    try {
+      return input.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
+    } catch {
+      return input;
+    }
+  }
+
+  /**
    * 代码审查
    * @param options 审查选项
    * @returns 审查结果
@@ -297,8 +310,9 @@ export default class GitlabProxyManager {
     message: string;
     ref?: string;
   }) {
-    // 确保评论内容不为空
-    if (!message || message.trim() === '') {
+    // 先移除 <think> 内容后再校验是否为空
+    const sanitizedMessage = this.stripThinkTags(message);
+    if (!sanitizedMessage || sanitizedMessage.trim() === '') {
       throw new Error('评论内容不能为空');
     }
     // 根据变更类型决定如何提交评论
@@ -307,7 +321,7 @@ export default class GitlabProxyManager {
       return this.postComment({
         newPath: change.new_path,
         newLine: 1,
-        body: message,
+        body: sanitizedMessage,
         ref: ref || this.ref || undefined,
       });
     } else if (change.deleted_file) {
@@ -315,7 +329,7 @@ export default class GitlabProxyManager {
       return this.postComment({
         oldPath: change.old_path,
         oldLine: 1,
-        body: message,
+        body: sanitizedMessage,
         ref: ref || this.ref || undefined,
       });
     } else if (change.renamed_file) {
@@ -325,7 +339,7 @@ export default class GitlabProxyManager {
         newLine: 1,
         oldPath: change.old_path,
         oldLine: 1,
-        body: message,
+        body: sanitizedMessage,
         ref: ref || this.ref || undefined,
       });
     } else {
@@ -347,7 +361,7 @@ export default class GitlabProxyManager {
         newLine: lineNumber,
         oldPath: change.old_path,
         oldLine: lineNumber,
-        body: message,
+        body: sanitizedMessage,
         ref: ref || this.ref || undefined,
       });
     }
