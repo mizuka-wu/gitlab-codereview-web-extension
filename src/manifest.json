@@ -27,7 +27,9 @@
     {
       "matches": [
         "*://*.gitlab.com/*",
-        "*://*/*"
+        "*://gitlab.com/*",
+        "*://*.jihulab.com/*",
+        "*://jihulab.com/*"
       ],
       "js": [
         "src/content/index.ts"
@@ -41,14 +43,18 @@
   ],
   "{{chrome}}.host_permissions": [
     "http://localhost:11434/*",
-    "https://localhost:11434/*"
+    "https://localhost:11434/*",
+    "https://gitlab.com/*",
+    "https://jihulab.com/*"
   ],
   "{{firefox}}.permissions": [
     "activeTab",
     "storage",
     "tabs",
     "http://localhost:11434/*",
-    "https://localhost:11434/*"
+    "https://localhost:11434/*",
+    "https://gitlab.com/*",
+    "https://jihulab.com/*"
   ],
   "background": {
     "{{chrome}}.service_worker": "src/background.ts",
