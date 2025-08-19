@@ -542,7 +542,6 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
           position_type: position.position_type || 'text',
           old_line: position.old_line || null,
           new_line: position.new_line,
-          line_code: position.line_code || '',
           ...position
         };
         
@@ -554,87 +553,52 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
           position.head_sha = position.head_sha || diffHeadSha;
         }
         
-        // 构建 line_code
-        let lineCode = '';
-        
-        // 生成临时 line_code 用于 line_range
-        const tempLineCode = `generated_${Date.now()}_${position.old_line || 0}_${position.new_line || 0}`;
-        
         // 确保 line_range 存在且完整
         if (!position.line_range || typeof position.line_range !== 'object') {
           position.line_range = {
             start: {
-              line_code: tempLineCode,
               type: position.new_line ? 'new' : 'old',
               old_line: position.old_line || null,
               new_line: position.new_line || null
             },
             end: {
-              line_code: tempLineCode,
               type: position.new_line ? 'new' : 'old',
               old_line: position.old_line || null,
               new_line: position.new_line || null
             }
           };
         }
-        if (position.new_path && position.new_line) {
-          // 从页面上获取 line_code
-          const lineElements = document.querySelectorAll('[data-line-code]');
-          // 转换为数组以使用迭代器
-          Array.from(lineElements).forEach(element => {
-            const code = element.getAttribute('data-line-code');
-            if (code && code.includes(`_${position.old_line || 0}_${position.new_line}`)) {
-              lineCode = code;
-            }
-          });
-          
-          // 如果找不到，尝试构建一个
-          if (!lineCode) {
-            // 提取当前文件的 blob id 或使用简单哈希
-            const fileId = document.querySelector(`[data-path="${position.new_path}"]`)?.getAttribute('data-blob-id') || '';
-            if (!fileId) {
-              // 如果没有找到 blob id，使用简单的哈希函数生成一个
-              const hashCode = (str: string) => {
-                let hash = 0;
-                for (let i = 0; i < str.length; i++) {
-                  const char = str.charCodeAt(i);
-                  hash = ((hash << 5) - hash) + char;
-                  hash = hash & hash; // Convert to 32bit integer
-                }
-                return Math.abs(hash).toString(16);
-              };
-              const generatedId = hashCode(position.new_path);
-              lineCode = `${generatedId}_${position.old_line || 0}_${position.new_line}`;
-            } else {
-              lineCode = `${fileId}_${position.old_line || 0}_${position.new_line}`;
-            }
-          }
-        }
         
-        // 确保 lineCode 不为空
-        if (!lineCode && position.new_path) {
-          // 如果还是没有 lineCode，生成一个默认的
-          const timestamp = Date.now();
-          lineCode = `generated_${timestamp}_${position.old_line || 0}_${position.new_line || 0}`;
-        }
-        
-        console.log('构建的 line_code:', lineCode);
-        
-        // 使用 discussions API 格式构建请求数据
-        const discussionsData = {
-          body: noteContent,
-          position: {
-            base_sha: position.base_sha || mrData.diff_refs?.base_sha || diffHeadSha,
-            start_sha: position.start_sha || mrData.diff_refs?.start_sha || diffHeadSha,
-            head_sha: diffHeadSha,
-            position_type: "text",
-            new_path: position.new_path,
-            new_line: position.new_line,
-            old_path: position.old_path || position.new_path,
-            old_line: position.old_line,
-            line_range: position.line_range
-          }
+        // 使用 discussions API 格式构建请求数据（使用 any 以便后续清理字段）
+        const diffRefs = mrData.diff_refs || {};
+        let positionPayload: any = {
+          base_sha: diffRefs.base_sha,
+          start_sha: diffRefs.start_sha,
+          head_sha: diffRefs.head_sha,
+          position_type: "text",
+          // 按文档要求同时提供 old_path 和 new_path
+          old_path: position.old_path || position.new_path,
+          new_path: position.new_path || position.old_path
         };
+
+        // 行号只提供一侧：优先 new_line，否则 old_line
+        if (position.new_line != null) {
+          positionPayload.new_line = position.new_line;
+        } else if (position.old_line != null) {
+          positionPayload.old_line = position.old_line;
+        }
+
+        let discussionsData: any = {
+          body: noteContent,
+          position: positionPayload
+        };
+        
+        // 清理 position 中的 null/undefined 字段，避免服务端解析异常
+        const sanitize = (obj: Record<string, any>) => {
+          const entries = Object.entries(obj).filter(([_, v]) => v !== null && v !== undefined);
+          return Object.fromEntries(entries);
+        };
+        discussionsData.position = sanitize(discussionsData.position);
       
       console.log('提交评论请求:', {
         url,

@@ -24,6 +24,59 @@ export default class GitlabProxyManager {
   }
 
   /**
+   * 解析 unified diff，返回首个新增行/删除行在新旧文件中的绝对行号
+   */
+  private parseDiffFirstPositions(diff: string): { firstAddedNewLine?: number; firstRemovedOldLine?: number } {
+    const lines = diff.split('\n');
+    let currentOld = 0;
+    let currentNew = 0;
+    let inHunk = false;
+    let firstAddedNewLine: number | undefined;
+    let firstRemovedOldLine: number | undefined;
+
+    const hunkHeader = /^@@\s+-(?<oldStart>\d+)(?:,(?<oldCount>\d+))?\s+\+(?<newStart>\d+)(?:,(?<newCount>\d+))?\s+@@/;
+
+    for (const raw of lines) {
+      const line = raw || '';
+      const m = line.match(hunkHeader);
+      if (m && m.groups) {
+        inHunk = true;
+        currentOld = parseInt(m.groups.oldStart || '0', 10);
+        currentNew = parseInt(m.groups.newStart || '0', 10);
+        continue;
+      }
+      if (!inHunk) continue;
+
+      if (line.startsWith('+')) {
+        if (line.startsWith('+++')) {
+          // file header, ignore
+        } else {
+          if (firstAddedNewLine === undefined) firstAddedNewLine = currentNew;
+          currentNew++;
+        }
+        continue;
+      }
+      if (line.startsWith('-')) {
+        if (line.startsWith('---')) {
+          // file header, ignore
+        } else {
+          if (firstRemovedOldLine === undefined) firstRemovedOldLine = currentOld;
+          currentOld++;
+        }
+        continue;
+      }
+      if (line.startsWith(' ')) {
+        currentOld++;
+        currentNew++;
+        continue;
+      }
+      // e.g. "\\ No newline at end of file" or empty -> ignore
+    }
+
+    return { firstAddedNewLine, firstRemovedOldLine };
+  }
+
+  /**
    * 解析合并请求 URL
    * @param url 合并请求 URL
    * @returns 解析后的信息
@@ -222,8 +275,8 @@ export default class GitlabProxyManager {
             fileId = this.hashCode(newPath);
           }
           
-          lineCode = `${fileId}_${oldLine || 0}_${newLine}`;
-          console.log('构建的 lineCode:', lineCode);
+          // 不再构造或上送自定义 lineCode，避免服务端校验失败
+          console.log('未获取到原始 lineCode，跳过自定义构造');
         }
       }
     } catch (error) {
@@ -235,35 +288,19 @@ export default class GitlabProxyManager {
       base_sha: null,
       start_sha: null,
       head_sha: diffHeadSha,
-      old_path: oldPath || newPath, // 确保始终有路径
-      new_path: newPath || oldPath, // 确保始终有路径
+      // 仅在存在时按需设置路径与行号，避免填充无效字段
+      old_path: oldPath || undefined,
+      new_path: newPath || undefined,
       position_type: 'text',
-      old_line: oldLine || null,
-      new_line: newLine || null,
-      line_code: lineCode, // 直接在根级别添加 line_code
-      line_range: newLine ? {
-        start: {
-          line_code: lineCode,
-          type: newLine ? "new" : "old",
-          old_line: oldLine || null,
-          new_line: newLine || null
-        },
-        end: {
-          line_code: lineCode,
-          type: newLine ? "new" : "old",
-          old_line: oldLine || null,
-          new_line: newLine || null
-        }
-      } : undefined,
+      old_line: typeof oldLine === 'number' ? oldLine : undefined,
+      new_line: typeof newLine === 'number' ? newLine : undefined,
       ignore_whitespace_change: false
-    };
+    } as Record<string, any>;
 
     // 根据成功的 curl 命令简化数据结构
     const data = {
       note: sanitizedBody, // 使用清洗后的 body 作为 note 字段的值
-      position: JSON.stringify(position),
-      line_code: lineCode,
-      merge_request_diff_head_sha: diffHeadSha
+      position: JSON.stringify(position)
     };
     
     // 传递原始 URL 信息，以便 content script 构建正确的 URL
@@ -285,7 +322,7 @@ export default class GitlabProxyManager {
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash; // Convert to 32bit integer
     }
-    return hash.toString(16); // 转为16进制
+    return Math.abs(hash).toString(16); // 转为正数的16进制，避免出现负号
   }
 
   /**
@@ -317,50 +354,59 @@ export default class GitlabProxyManager {
     }
     // 根据变更类型决定如何提交评论
     if (change.new_file) {
-      // 新文件，评论放在第一行
+      // 新文件：使用首个新增行（若找不到则回退到 1）
+      const { firstAddedNewLine } = this.parseDiffFirstPositions(change.diff || '');
       return this.postComment({
         newPath: change.new_path,
-        newLine: 1,
+        newLine: firstAddedNewLine ?? 1,
         body: sanitizedMessage,
         ref: ref || this.ref || undefined,
       });
     } else if (change.deleted_file) {
-      // 删除的文件，评论放在旧文件的第一行
+      // 删除的文件：使用首个删除行（若找不到则回退到 1）
+      const { firstRemovedOldLine } = this.parseDiffFirstPositions(change.diff || '');
       return this.postComment({
         oldPath: change.old_path,
-        oldLine: 1,
+        oldLine: firstRemovedOldLine ?? 1,
         body: sanitizedMessage,
         ref: ref || this.ref || undefined,
       });
     } else if (change.renamed_file) {
-      // 重命名的文件，评论放在新文件的第一行
+      // 重命名：按新增侧
+      const { firstAddedNewLine } = this.parseDiffFirstPositions(change.diff || '');
       return this.postComment({
         newPath: change.new_path,
-        newLine: 1,
         oldPath: change.old_path,
-        oldLine: 1,
+        newLine: firstAddedNewLine ?? 1,
         body: sanitizedMessage,
         ref: ref || this.ref || undefined,
       });
     } else {
-      // 修改的文件，评论放在第一个变更的行
-      // 这里简化处理，实际项目中可能需要更复杂的逻辑
-      const diffLines = change.diff.split('\n');
-      let lineNumber = 1;
-      
-      for (let i = 0; i < diffLines.length; i++) {
-        const line = diffLines[i];
-        if (line.startsWith('+') && !line.startsWith('+++')) {
-          lineNumber = i + 1;
-          break;
-        }
+      // 修改文件：优先使用新增侧；若无新增则使用删除侧
+      const { firstAddedNewLine, firstRemovedOldLine } = this.parseDiffFirstPositions(change.diff || '');
+      if (firstAddedNewLine !== undefined) {
+        return this.postComment({
+          newPath: change.new_path,
+          oldPath: change.old_path,
+          newLine: firstAddedNewLine,
+          body: sanitizedMessage,
+          ref: ref || this.ref || undefined,
+        });
       }
-      
+      if (firstRemovedOldLine !== undefined) {
+        return this.postComment({
+          newPath: change.new_path,
+          oldPath: change.old_path,
+          oldLine: firstRemovedOldLine,
+          body: sanitizedMessage,
+          ref: ref || this.ref || undefined,
+        });
+      }
+      // 回退：无法解析时选择文件首行（新增侧）
       return this.postComment({
         newPath: change.new_path,
-        newLine: lineNumber,
         oldPath: change.old_path,
-        oldLine: lineNumber,
+        newLine: 1,
         body: sanitizedMessage,
         ref: ref || this.ref || undefined,
       });
