@@ -42,7 +42,8 @@ export async function generateReview(params: GenerateReviewParams): Promise<stri
     default: {
       const endpoint: string = settings?.aiAgent?.aiAgentConfig?.ollama?.endpoint ?? DEFAULT_OLLAMA_END_POINT;
       const model: string = settings?.aiAgent?.aiAgentConfig?.ollama?.model ?? 'llama3';
-      const text = await generateWithOllama({ endpoint, model, prompt, stream: false });
+      // use stream mode to reduce timeout risk on long generations
+      const text = await generateWithOllama({ endpoint, model, prompt, stream: true, timeoutMs: 120000 });
       return (text ?? '').toString();
     }
   }
