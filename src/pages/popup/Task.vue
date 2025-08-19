@@ -57,7 +57,7 @@
 </template>
 
 <script lang="ts" setup>
-import { defineModel, ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import browser from "webextension-polyfill";
 import { NButton, NIcon } from 'naive-ui';
 import { CheckmarkCircle, AlertCircle, Code as CodeOutline, ChevronDown, ChevronUp } from '@vicons/ionicons5';
@@ -228,7 +228,7 @@ async function runAnalysisTask() {
         console.error('任务执行失败:', error);
         if (task.value) {
             task.value.status = 'failed';
-            
+
             // 捕获错误信息
             if (error instanceof Error) {
                 errorMessage.value = error.message;
