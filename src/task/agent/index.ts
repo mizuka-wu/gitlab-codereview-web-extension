@@ -29,7 +29,8 @@ export async function generateReview(params: GenerateReviewParams): Promise<stri
   const settings: any = await loadSettings();
 
   const current = settings?.aiAgent?.current ?? 'ollama';
-  const template: string = settings?.prompt?.template ?? DEFAUTL_PROMPT;
+  const tplFromSettings = (settings?.prompt?.template ?? '').trim();
+  const template: string = tplFromSettings ? tplFromSettings : DEFAUTL_PROMPT;
   const prompt = renderTemplate(template, {
     context: params.context ?? '',
     language: params.language ?? '',

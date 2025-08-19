@@ -1,5 +1,6 @@
 import browser from "webextension-polyfill";
 import { type GitLabDetection, type Settings } from "./types/index.d";
+import { DEFAUTL_PROMPT } from "./constants";
 
 console.log("Gitlab Codereview Web Extension Start!");
 
@@ -35,7 +36,7 @@ browser.runtime.onInstalled.addListener((details) => {
       aiAgentConfig: {},
     },
     prompt: {
-      template: "",
+      template: DEFAUTL_PROMPT,
     },
   };
   browser.storage.sync.set({
