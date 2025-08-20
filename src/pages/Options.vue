@@ -2,65 +2,78 @@
   <NLayout class="options-container">
     <NLayoutHeader class="header">
       <img src="/icon/active/128.png" class="logo" />
-      <NH1>GitLab 代码审查助手</NH1>
+      <NH1>{{ $t('common.appTitle') }}</NH1>
     </NLayoutHeader>
     <NLayoutContent class="content">
-      <NCard title="通用设置" class="settings-section">
+      <NCard :title="$t('options.languageSettings')" class="settings-section">
         <NSpace vertical>
-          <NFormItem label="启用代码审查">
+          <NFormItem :label="$t('options.uiLanguage')">
+            <NSelect
+              v-model:value="locale"
+              :options="localeOptions"
+              style="width: 200px"
+              @update:value="onLocaleChange"
+            />
+          </NFormItem>
+        </NSpace>
+      </NCard>
+
+      <NCard :title="$t('options.generalSettings')" class="settings-section">
+        <NSpace vertical>
+          <NFormItem :label="$t('options.enableCodeReview')">
             <NSwitch v-model:value="settings.detctor.isEnable" />
           </NFormItem>
         </NSpace>
       </NCard>
 
-      <NCard title="AI 代理设置" class="settings-section">
+      <NCard :title="$t('options.aiAgentSettings')" class="settings-section">
         <NSpace vertical>
-          <NFormItem label="AI 代理">
+          <NFormItem :label="$t('options.aiAgent')">
             <NSelect v-model:value="settings.aiAgent.current" :options="aiAgentOptions" style="width: 200px" />
           </NFormItem>
 
           <template v-if="settings.aiAgent.current === 'ollama'">
-            <NFormItem label="Ollama 地址">
+            <NFormItem :label="$t('options.ollamaAddress')">
               <NInput v-model:value="ollamaEndpoint" placeholder="http://localhost:11434" />
               <template #suffix>
-                <NText depth="3" style="font-size: 12px">Ollama 服务器地址</NText>
+                <NText depth="3" style="font-size: 12px">{{ $t('options.ollamaServerAddress') }}</NText>
               </template>
             </NFormItem>
 
-            <NFormItem label="模型名称">
+            <NFormItem :label="$t('options.modelName')">
               <NSpace align="center">
                 <NSelect
                   v-model:value="ollamaModel"
                   :options="ollamaModelOptions"
                   filterable
                   clearable
-                  placeholder="请选择或刷新本地模型"
+                  :placeholder="$t('options.selectOrRefreshModel')"
                   style="width: 240px"
                 />
-                <NButton @click="refreshModels" size="small" :loading="isLoadingModels">刷新</NButton>
-                <NButton @click="testOllama" size="small" tertiary>测试连接</NButton>
+                <NButton @click="refreshModels" size="small" :loading="isLoadingModels">{{ $t('common.refresh') }}</NButton>
+                <NButton @click="testOllama" size="small" tertiary>{{ $t('common.testConnection') }}</NButton>
               </NSpace>
             </NFormItem>
           </template>
         </NSpace>
       </NCard>
 
-      <NCard title="提示词设置" class="settings-section">
+      <NCard :title="$t('options.promptSettings')" class="settings-section">
         <template #header-extra>
           <NSpace>
-            <NButton @click="resetPrompt" size="small" type="default">恢复默认</NButton>
+            <NButton @click="resetPrompt" size="small" type="default">{{ $t('common.reset') }}</NButton>
           </NSpace>
         </template>
-        <NInput v-model:value="settings.prompt.template" type="textarea" placeholder="请输入提示词模板"
+        <NInput v-model:value="settings.prompt.template" type="textarea" :placeholder="$t('options.placeholderPrompt')"
           :autosize="{ minRows: 10 }" />
       </NCard>
 
       <div class="actions">
         <NButton type="primary" @click="saveSettings" :loading="isSaving">
-          保存设置
+          {{ $t('common.saveSettings') }}
         </NButton>
         <NButton @click="resetSettings" :disabled="isSaving">
-          恢复默认
+          {{ $t('common.reset') }}
         </NButton>
       </div>
     </NLayoutContent>
@@ -70,6 +83,7 @@
 <script lang="ts" setup>
 import browser from "webextension-polyfill";
 import { ref, onMounted, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import {
   NLayout,
   NLayoutHeader,
@@ -86,10 +100,12 @@ import {
   useMessage
 } from 'naive-ui';
 import { DEFAUTL_PROMPT } from '../constants';
-import type { Settings } from '../types';
+import type { Settings, Locale } from '../types';
 import { listOllamaModels, isOllamaModelAvailable } from '../task/agent/ollama';
+import { supportedLocales } from '../i18n';
 
 const message = useMessage();
+const { t, locale: i18nLocale } = useI18n();
 
 // 设置数据
 const settings = ref<Settings>({
@@ -107,7 +123,8 @@ const settings = ref<Settings>({
   },
   prompt: {
     template: DEFAUTL_PROMPT
-  }
+  },
+  locale: 'zh-CN'
 });
 
 // AI 代理选项
@@ -145,6 +162,32 @@ const ollamaModel = computed({
   }
 });
 
+// 语言选项与绑定
+const locale = computed<Locale>({
+  get: () => (settings.value.locale ?? 'zh-CN') as Locale,
+  set: (v: Locale) => {
+    settings.value.locale = v;
+  }
+});
+const localeOptions = supportedLocales;
+const onLocaleChange = async (v: Locale) => {
+  i18nLocale.value = v;
+  settings.value.locale = v;
+  try {
+    await browser.storage.sync.set({ settings: settings.value });
+    try {
+      await browser.runtime.sendMessage({
+        action: 'settingsUpdated',
+        settings: settings.value,
+      });
+    } catch (e) {
+      console.warn(t('options.broadcastFailed') + ':', e);
+    }
+  } catch (e) {
+    console.error('保存语言失败:', e);
+  }
+};
+
 // 模型列表与操作
 const isLoadingModels = ref(false);
 const models = ref<string[]>([]);
@@ -160,11 +203,11 @@ const refreshModels = async () => {
     await ensureHostPermissionForEndpoint(ollamaEndpoint.value);
     const list = await listOllamaModels(ollamaEndpoint.value);
     models.value = list;
-    message.success(`已获取模型 ${list.length} 个`);
+    message.success(t('model.fetched', { count: list.length }));
   } catch (e) {
     console.error('获取模型失败:', e);
-    const msg = (e as Error)?.message || '获取模型失败';
-    message.error(msg);
+    const msg = (e as Error)?.message || t('model.fetchFailed');
+    message.error(String(msg));
   } finally {
     isLoadingModels.value = false;
   }
@@ -176,18 +219,18 @@ const testOllama = async () => {
     if (ollamaModel.value) {
       const ok = await isOllamaModelAvailable(ollamaEndpoint.value, ollamaModel.value);
       if (ok) {
-        message.success('连接正常，模型可用');
+        message.success(t('model.testOkModelOk'));
       } else {
-        message.warning('连接正常，但未找到该模型');
+        message.warning(t('model.testOkModelMissing'));
       }
     } else {
       const list = await listOllamaModels(ollamaEndpoint.value);
-      message.success(`连接正常，可用模型 ${list.length} 个`);
+      message.success(t('model.testOkCount', { count: list.length }));
     }
   } catch (e) {
     console.error('测试连接失败:', e);
-    const msg = (e as Error)?.message || '测试连接失败';
-    message.error(msg);
+    const msg = (e as Error)?.message || t('model.testFailed');
+    message.error(String(msg));
   }
 };
 
@@ -204,7 +247,7 @@ const toOriginPattern = (url: string): string => {
 // 申请运行时主机权限（仅在支持的浏览器/上下文生效）
 const ensureHostPermissionForEndpoint = async (endpoint: string) => {
   const origin = toOriginPattern(endpoint);
-  if (!origin) throw new Error('Ollama 地址不合法');
+  if (!origin) throw new Error(t('permission.invalidEndpoint'));
   const permsApi: any = (browser as any).permissions;
   // 在不支持 permissions API 的环境下直接跳过
   if (!permsApi?.contains || !permsApi?.request) return;
@@ -212,7 +255,7 @@ const ensureHostPermissionForEndpoint = async (endpoint: string) => {
   console.log('权限结果', has)
   if (!has) {
     const granted = await permsApi.request({ origins: [origin] });
-    if (!granted) throw new Error(`未授予访问权限：${origin}`);
+    if (!granted) throw new Error(t('permission.notGranted', { origin }));
   }
 };
 
@@ -230,13 +273,13 @@ const saveSettings = async () => {
         settings: settings.value,
       });
     } catch (e) {
-      console.warn('广播设置更新失败（可忽略）:', e);
+      console.warn(t('options.broadcastFailed') + ':', e);
     }
-    message.success('设置已保存');
+    message.success(t('common.saved'));
   } catch (error) {
     console.error('保存设置失败:', error);
-    const msg = (error as Error)?.message || '保存失败，请重试';
-    message.error(msg);
+    const msg = (error as Error)?.message || t('common.saveFailed');
+    message.error(String(msg));
   } finally {
     isSaving.value = false;
   }
@@ -245,7 +288,7 @@ const saveSettings = async () => {
 // 重置提示词
 const resetPrompt = () => {
   settings.value.prompt.template = DEFAUTL_PROMPT;
-  message.success('已恢复默认提示词');
+  message.success(t('common.resetPromptDone'));
 };
 
 // 重置所有设置
@@ -267,12 +310,12 @@ const resetSettings = async () => {
         settings: settings.value,
       });
     } catch (e) {
-      console.warn('广播设置更新失败（可忽略）:', e);
+      console.warn(t('options.broadcastFailed') + ':', e);
     }
-    message.success('已恢复默认设置');
+    message.success(t('common.resetDone'));
   } catch (error) {
     console.error('重置设置失败:', error);
-    message.error('重置失败，请重试');
+    message.error(t('common.resetFailed'));
   } finally {
     isSaving.value = false;
   }
@@ -296,10 +339,14 @@ const loadSettings = async () => {
         }
       };
       ensureOllamaConfig();
+      // 同步 i18n 语言
+      if (settings.value.locale) {
+        i18nLocale.value = settings.value.locale as Locale;
+      }
     }
   } catch (error) {
     console.error('加载设置失败:', error);
-    message.error('加载设置失败');
+    message.error(t('common.loadFailed'));
   }
 };
 

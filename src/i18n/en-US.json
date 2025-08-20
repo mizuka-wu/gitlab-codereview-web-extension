@@ -1,0 +1,89 @@
+{
+  "common": {
+    "appTitle": "GitLab Code Review Assistant",
+    "save": "Save",
+    "saveSettings": "Save Settings",
+    "reset": "Reset",
+    "refresh": "Refresh",
+    "testConnection": "Test Connection",
+    "saved": "Settings saved",
+    "resetDone": "Settings reset to default",
+    "resetPromptDone": "Prompt restored to default",
+    "saveFailed": "Save failed, please retry",
+    "resetFailed": "Reset failed, please retry",
+    "loadFailed": "Failed to load settings",
+    "close": "Close",
+    "unknownError": "Unknown error"
+  },
+  "options": {
+    "languageSettings": "Language Settings",
+    "uiLanguage": "UI Language",
+    "generalSettings": "General Settings",
+    "aiAgentSettings": "AI Agent Settings",
+    "promptSettings": "Prompt Settings",
+    "enableCodeReview": "Enable Code Review",
+    "aiAgent": "AI Agent",
+    "ollamaAddress": "Ollama Endpoint",
+    "ollamaServerAddress": "Ollama Server Address",
+    "modelName": "Model Name",
+    "selectOrRefreshModel": "Please select or refresh local models",
+    "placeholderPrompt": "Enter prompt template",
+    "broadcastFailed": "Broadcast settings update failed (can be ignored)"
+  },
+  "model": {
+    "fetched": "Fetched {count} models",
+    "testOkModelOk": "Connection OK, model available",
+    "testOkModelMissing": "Connection OK, model not found",
+    "testOkCount": "Connection OK, {count} models available",
+    "fetchFailed": "Failed to fetch models",
+    "testFailed": "Connection test failed"
+  },
+  "permission": {
+    "invalidEndpoint": "Invalid Ollama endpoint",
+    "notGranted": "Permission not granted: {origin}"
+  },
+  "error": {
+    "saveFailed": "Save failed, please retry",
+    "resetFailed": "Reset failed, please retry",
+    "loadFailed": "Failed to load settings"
+  },
+  "popup": {
+    "subtitle": "Efficient code review, improve productivity",
+    "pageStatus": "Page Status",
+    "satisfied": "Satisfied",
+    "unsatisfied": "Not satisfied",
+    "useInMrPage": "Please use this feature on GitLab's Merge Request page",
+    "startAnalysis": "Start Analysis",
+    "settings": "Settings",
+    "version": "Version {version}",
+    "isGitLabPage": "On a GitLab page",
+    "isMrPage": "On an MR page",
+    "task": {
+      "title": "Code Review Task",
+      "id": "ID",
+      "keepPageOpen": "Please keep this page open",
+      "reviewCompleted": "Code review completed",
+      "reviewFailed": "Review failed",
+      "debugInfo": "Debug Info",
+      "analyzing": "Analyzing...",
+      "preparing": "Preparing...",
+      "noModelConfigured": "Ollama model is not configured. Please go to Settings and select a model",
+      "modelUnavailable": "Model unavailable or not installed: {model}",
+      "precheckFailed": "Precheck failed",
+      "status": {
+        "pending": "Pending",
+        "processing": "Processing",
+        "completed": "Completed",
+        "failed": "Failed"
+      },
+      "noActivePage": "Unable to get current page info",
+      "fetchingChanges": "Fetching code changes...",
+      "noChangesFound": "No code changes found",
+      "foundChanges": "Found {count} changes, preparing to analyze...",
+      "analyzingItem": "Analyzing {index}/{total}: {file}",
+      "analysisDone": "Analysis complete",
+      "requestFailedWithStatus": "Request failed with status {status}",
+      "noServerResponse": "No response from server"
+    }
+  }
+}

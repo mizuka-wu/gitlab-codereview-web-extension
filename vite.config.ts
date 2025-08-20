@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import webExtension, { readJsonFile } from "vite-plugin-web-extension";
 import path from "node:path";
+import VueI18nPlugin from "@intlify/unplugin-vue-i18n/vite";
 
 const INVALID_CHAR_REGEX = /[\x00-\x1F\x7F<>*#"{}|^[\]`;?:&=+$,]/g;
 const DRIVE_LETTER_REGEX = /^[a-z]:/i;
@@ -19,6 +20,12 @@ function generateManifest() {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  define: {
+    __VUE_I18N_FULL_INSTALL__: true,
+    __VUE_I18N_LEGACY_API__: false,
+    __VUE_I18N_PROD_DEVTOOLS__: false,
+    __VUE_I18N_JIT_COMPILATION__: false,
+  },
   build: {
     rollupOptions: {
       output: {
@@ -36,6 +43,14 @@ export default defineConfig({
   },
   plugins: [
     vue(),
+    VueI18nPlugin({
+      // 不使用 JIT，避免 eval
+      jitCompilation: false,
+      // 仅预编译 JSON 语言包，避免匹配到 src/i18n/index.ts 导致错误
+      include: [
+        path.resolve(process.cwd(), "src/i18n/**/*.json"),
+      ],
+    }),
     webExtension({
       // 仅保留 Chrome 相关清单片段
       browser: "chrome",

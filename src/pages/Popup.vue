@@ -1,13 +1,13 @@
 <template>
   <div class="popup-container">
     <div class="app-header">
-      <h1 class="app-title">GitLab 代码审查助手</h1>
-      <p class="app-subtitle">高效代码审查，提升开发效率</p>
+      <h1 class="app-title">{{ $t('common.appTitle') }}</h1>
+      <p class="app-subtitle">{{ $t('popup.subtitle') }}</p>
     </div>
     <NCard size="small" class="status-card" :bordered="false" v-if="!isSupportAnalysis">
       <template #header>
         <div class="status-header">
-          <h3 class="status-title">页面状态检测</h3>
+          <h3 class="status-title">{{ $t('popup.pageStatus') }}</h3>
         </div>
       </template>
 
@@ -19,7 +19,7 @@
           </div>
           <span class="status-label">{{ status.label }}</span>
           <NTag :type="status.value ? 'success' : 'default'" size="small" round class="status-tag">
-            {{ status.value ? '已满足' : '未满足' }}
+            {{ status.value ? $t('popup.satisfied') : $t('popup.unsatisfied') }}
           </NTag>
         </div>
       </div>
@@ -27,7 +27,7 @@
       <template #footer>
         <div v-if="!isSupportAnalysis" class="status-message">
           <NIcon :component="InfoCircle" size="16" class="info-icon" />
-          <span>请在GitLab的Merge Request页面使用此功能</span>
+          <span>{{ $t('popup.useInMrPage') }}</span>
         </div>
       </template>
     </NCard>
@@ -36,15 +36,15 @@
     <div class="actions" v-else>
       <NButton @click="analysis" type="primary" :disabled="!isSupportAnalysis" class="action-button"
         :class="{ 'is-active': isSupportAnalysis }">
-        开始分析
+        {{ $t('popup.startAnalysis') }}
       </NButton>
       <NButton ghost @click="browser.runtime.openOptionsPage()" class="action-button">
-        设置
+        {{ $t('popup.settings') }}
       </NButton>
     </div>
 
     <footer class="footer">
-      <div class="version">版本 1.0.0</div>
+      <div class="version">{{ $t('popup.version', { version }) }}</div>
     </footer>
   </div>
 </template>
@@ -53,10 +53,13 @@
 import { v4 as uuid } from 'uuid';
 import browser from "webextension-polyfill";
 import { ref, computed, onMounted, onBeforeMount, onBeforeUnmount, onBeforeUpdate } from 'vue'
+import { useI18n } from 'vue-i18n';
 import { NResult, NButton, NTag, NIcon, NSwitch, NCard, NDescriptions, NDescriptionsItem } from 'naive-ui';
 import { CheckmarkCircle, Square, InformationCircle as InfoCircle } from '@vicons/ionicons5';
 import Task from './popup/Task.vue';
 import { type GitLabDetection, type AnalysisTask } from "../types";
+
+const { t, locale: i18nLocale } = useI18n();
 
 // detection检测部分
 const isGitLabRef = ref<boolean>(false);
@@ -65,11 +68,11 @@ const isLoading = ref<boolean>(true);
 
 const statusList = computed(() => [
   {
-    label: '当前为GitLab页面',
+    label: t('popup.isGitLabPage'),
     value: isGitLabRef.value,
   },
   {
-    label: '当前为MR页面',
+    label: t('popup.isMrPage'),
     value: isReviewPageRef.value,
   }
 ]);
@@ -144,6 +147,28 @@ onBeforeUnmount(() => {
   document.removeEventListener("DOMContentLoaded", initPopup);
 })
 
+// i18n：从存储同步语言，并监听设置更新
+const version = ref('');
+async function syncLocaleFromSettings() {
+  try {
+    const data = await browser.storage.sync.get('settings');
+    const locale = data?.settings?.locale;
+    if (locale) i18nLocale.value = locale as any;
+  } catch {}
+}
+const handleRuntimeMessage = (message: any) => {
+  if (message?.action === 'settingsUpdated' && message.settings?.locale) {
+    i18nLocale.value = message.settings.locale as any;
+  }
+};
+onMounted(() => {
+  syncLocaleFromSettings();
+  version.value = (browser.runtime.getManifest?.() as any)?.version || '';
+  try { browser.runtime.onMessage.addListener(handleRuntimeMessage); } catch {}
+});
+onBeforeUnmount(() => {
+  try { browser.runtime.onMessage.removeListener(handleRuntimeMessage); } catch {}
+});
 
 </script>
 

@@ -1,13 +1,13 @@
 <template>
     <div class="task-container">
         <div class="task-header">
-            <h3 class="task-title">代码审查任务</h3>
-            <div class="task-id">ID: {{ task?.uuid?.substring(0, 8) }}</div>
+            <h3 class="task-title">{{ $t('popup.task.title') }}</h3>
+            <div class="task-id">{{ $t('popup.task.id') }}: {{ task?.uuid?.substring(0, 8) }}</div>
         </div>
 
         <div class="task-content">
             <div class="task-status">
-                <div>请不要关闭此页面</div>
+                <div>{{ $t('popup.task.keepPageOpen') }}</div>
                 <div class="status-badge" :class="statusClass">{{ statusText }}</div>
                 <div class="task-url" v-if="task?.mergeRequestUrl">{{ task?.mergeRequestUrl }}</div>
             </div>
@@ -22,19 +22,19 @@
             <div class="task-result" v-if="task?.status === 'completed'">
                 <div class="result-success">
                     <NIcon :component="CheckmarkCircle" size="24" />
-                    <span>代码审查已完成</span>
+                    <span>{{ $t('popup.task.reviewCompleted') }}</span>
                 </div>
             </div>
 
             <div class="task-error" v-if="task?.status === 'failed'">
                 <div class="error-message">
                     <NIcon :component="AlertCircle" size="24" />
-                    <span>审查失败: {{ errorMessage || '未知错误' }}</span>
+                    <span>{{ $t('popup.task.reviewFailed') }}: {{ errorMessage || $t('common.unknownError') }}</span>
                 </div>
                 <div class="debug-info" v-if="debugInfo">
                     <div class="debug-title" @click="toggleDebug">
                         <NIcon :component="CodeOutline" size="16" />
-                        <span>调试信息</span>
+                        <span>{{ $t('popup.task.debugInfo') }}</span>
                         <NIcon :component="showDebug ? ChevronUp : ChevronDown" size="16" />
                     </div>
                     <div class="debug-content" v-if="showDebug">
@@ -47,14 +47,14 @@
         <div class="task-actions">
             <NButton v-if="task?.status === 'pending' || task?.status === 'processing'" @click="startAnalysis"
                 type="primary" :loading="task?.status === 'processing'" :disabled="task?.status === 'processing'">
-                {{ task?.status === 'processing' ? '分析中...' : '开始分析' }}
+                {{ task?.status === 'processing' ? $t('popup.task.analyzing') : $t('popup.startAnalysis') }}
             </NButton>
             <NButton v-if="task?.status === 'failed' && showGoToSettings" @click="goToOptions" type="default">
-                去设置
+                {{ $t('popup.settings') }}
             </NButton>
             <NButton v-if="task?.status === 'failed' || task?.status === 'completed'" @click="cancelTask"
                 type="default">
-                关闭
+                {{ $t('common.close') }}
             </NButton>
         </div>
     </div>
@@ -62,6 +62,7 @@
 
 <script lang="ts" setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n';
 import browser from "webextension-polyfill";
 import { NButton, NIcon } from 'naive-ui';
 import { CheckmarkCircle, AlertCircle, Code as CodeOutline, ChevronDown, ChevronUp } from '@vicons/ionicons5';
@@ -71,9 +72,11 @@ import { generateReview } from '../../task/agent';
 import { isOllamaModelAvailable } from '../../task/agent/ollama';
 import { DEFAULT_OLLAMA_END_POINT } from '../../constants';
 
+const { t } = useI18n();
+
 const task = defineModel<AnalysisTask | null>();
 const progress = ref(0);
-const progressText = ref('准备中...');
+const progressText = ref(t('popup.task.preparing'));
 const errorMessage = ref('');
 const debugInfo = ref('');
 const showDebug = ref(false);
@@ -130,7 +133,7 @@ async function precheckModel(): Promise<boolean> {
         if (!model) {
             if (task.value) task.value.status = 'failed';
             showGoToSettings.value = true;
-            errorMessage.value = '未配置 Ollama 模型，请前往设置页选择模型';
+            errorMessage.value = t('popup.task.noModelConfigured');
             debugInfo.value = JSON.stringify({ endpoint, model }, null, 2);
             return false;
         }
@@ -139,7 +142,7 @@ async function precheckModel(): Promise<boolean> {
         if (!available) {
             if (task.value) task.value.status = 'failed';
             showGoToSettings.value = true;
-            errorMessage.value = `模型不可用或未安装：${model}`;
+            errorMessage.value = t('popup.task.modelUnavailable', { model });
             debugInfo.value = JSON.stringify({ endpoint, model, available }, null, 2);
             return false;
         }
@@ -148,7 +151,7 @@ async function precheckModel(): Promise<boolean> {
     } catch (e) {
         if (task.value) task.value.status = 'failed';
         showGoToSettings.value = true;
-        errorMessage.value = (e as Error)?.message || '预检失败';
+        errorMessage.value = (e as Error)?.message || t('popup.task.precheckFailed');
         debugInfo.value = JSON.stringify(e, null, 2);
         return false;
     }
@@ -177,10 +180,10 @@ const statusText = computed(() => {
     if (!task.value) return '';
 
     switch (task.value.status) {
-        case 'pending': return '等待中';
-        case 'processing': return '处理中';
-        case 'completed': return '已完成';
-        case 'failed': return '失败';
+        case 'pending': return t('popup.task.status.pending');
+        case 'processing': return t('popup.task.status.processing');
+        case 'completed': return t('popup.task.status.completed');
+        case 'failed': return t('popup.task.status.failed');
         default: return '';
     }
 });
@@ -203,7 +206,7 @@ async function startAnalysis() {
         const currentTab = tabs[0];
 
         if (!currentTab || !currentTab.url) {
-            throw new Error('无法获取当前页面信息');
+            throw new Error(t('popup.task.noActivePage'));
         }
 
         // 预检模型可用性
@@ -240,21 +243,21 @@ async function runAnalysisTask() {
 
         // 获取变更
         progress.value = 10;
-        progressText.value = '正在获取代码变更...';
+        progressText.value = t('popup.task.fetchingChanges');
         const { changes, ref } = await gitlabManager.getChanges();
 
         if (!changes || changes.length === 0) {
-            throw new Error('没有找到代码变更');
+            throw new Error(t('popup.task.noChangesFound'));
         }
 
         progress.value = 30;
-        progressText.value = `找到 ${changes.length} 个代码变更，准备分析...`;
+        progressText.value = t('popup.task.foundChanges', { count: changes.length });
 
         // 模拟AI分析过程
         for (let i = 0; i < changes.length; i++) {
             const change = changes[i];
             progress.value = 30 + Math.floor((i / changes.length) * 60);
-            progressText.value = `正在分析 ${i + 1}/${changes.length}: ${change.new_path}`;
+            progressText.value = t('popup.task.analyzingItem', { index: i + 1, total: changes.length, file: change.new_path });
 
             // 使用真实 AI 调用生成代码审查内容
             const message = await generateReview({
@@ -273,7 +276,7 @@ async function runAnalysisTask() {
 
         // 完成
         progress.value = 100;
-        progressText.value = '分析完成';
+        progressText.value = t('popup.task.analysisDone');
 
         if (task.value) {
             task.value.status = 'completed';
@@ -291,7 +294,7 @@ async function runAnalysisTask() {
                 // 处理axios错误
                 const axiosError = error as any;
                 if (axiosError.response) {
-                    errorMessage.value = `Request failed with status code ${axiosError.response.status}`;
+                    errorMessage.value = t('popup.task.requestFailedWithStatus', { status: axiosError.response.status });
                     // 保存调试信息
                     debugInfo.value = JSON.stringify({
                         status: axiosError.response.status,
@@ -306,17 +309,17 @@ async function runAnalysisTask() {
                         }
                     }, null, 2);
                 } else if (axiosError.request) {
-                    errorMessage.value = '服务器没有响应';
+                    errorMessage.value = t('popup.task.noServerResponse');
                     debugInfo.value = JSON.stringify({
                         request: '请求已发送但没有收到响应',
                         config: axiosError.config
                     }, null, 2);
                 } else {
-                    errorMessage.value = axiosError.message || '未知错误';
+                    errorMessage.value = axiosError.message || t('common.unknownError');
                     debugInfo.value = JSON.stringify(error, null, 2);
                 }
             } else {
-                errorMessage.value = '未知错误';
+                errorMessage.value = t('common.unknownError');
                 debugInfo.value = JSON.stringify(error, null, 2);
             }
         }

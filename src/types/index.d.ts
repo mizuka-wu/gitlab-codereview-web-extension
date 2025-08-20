@@ -12,6 +12,8 @@ export interface GitLabDetection {
 
 export const AiAgents = ["ollama"] as const;
 
+export type Locale = "zh-CN" | "en-US";
+
 export interface DetectorSettings {
   isEnable: boolean;
 }
@@ -31,6 +33,8 @@ export type Settings<T = Record<string, string>> = {
   aiAgent: AiAgentSettings;
   /** 提示词配置 */
   prompt: PromptSettings;
+  /** 界面语言 */
+  locale?: Locale;
 };
 
 export * from "./task/index.d";

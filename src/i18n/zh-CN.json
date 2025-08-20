@@ -1,0 +1,89 @@
+{
+  "common": {
+    "appTitle": "GitLab 代码审查助手",
+    "save": "保存",
+    "saveSettings": "保存设置",
+    "reset": "恢复默认",
+    "refresh": "刷新",
+    "testConnection": "测试连接",
+    "saved": "设置已保存",
+    "resetDone": "已恢复默认设置",
+    "resetPromptDone": "已恢复默认提示词",
+    "saveFailed": "保存失败，请重试",
+    "resetFailed": "重置失败，请重试",
+    "loadFailed": "加载设置失败",
+    "close": "关闭",
+    "unknownError": "未知错误"
+  },
+  "options": {
+    "languageSettings": "语言设置",
+    "uiLanguage": "界面语言",
+    "generalSettings": "通用设置",
+    "aiAgentSettings": "AI 代理设置",
+    "promptSettings": "提示词设置",
+    "enableCodeReview": "启用代码审查",
+    "aiAgent": "AI 代理",
+    "ollamaAddress": "Ollama 地址",
+    "ollamaServerAddress": "Ollama 服务器地址",
+    "modelName": "模型名称",
+    "selectOrRefreshModel": "请选择或刷新本地模型",
+    "placeholderPrompt": "请输入提示词模板",
+    "broadcastFailed": "广播设置更新失败（可忽略）"
+  },
+  "model": {
+    "fetched": "已获取模型 {count} 个",
+    "testOkModelOk": "连接正常，模型可用",
+    "testOkModelMissing": "连接正常，但未找到该模型",
+    "testOkCount": "连接正常，可用模型 {count} 个",
+    "fetchFailed": "获取模型失败",
+    "testFailed": "测试连接失败"
+  },
+  "permission": {
+    "invalidEndpoint": "Ollama 地址不合法",
+    "notGranted": "未授予访问权限：{origin}"
+  },
+  "error": {
+    "saveFailed": "保存失败，请重试",
+    "resetFailed": "重置失败，请重试",
+    "loadFailed": "加载设置失败"
+  },
+  "popup": {
+    "subtitle": "高效代码审查，提升开发效率",
+    "pageStatus": "页面状态检测",
+    "satisfied": "已满足",
+    "unsatisfied": "未满足",
+    "useInMrPage": "请在GitLab的Merge Request页面使用此功能",
+    "startAnalysis": "开始分析",
+    "settings": "设置",
+    "version": "版本 {version}",
+    "isGitLabPage": "当前为GitLab页面",
+    "isMrPage": "当前为MR页面",
+    "task": {
+      "title": "代码审查任务",
+      "id": "ID",
+      "keepPageOpen": "请不要关闭此页面",
+      "reviewCompleted": "代码审查已完成",
+      "reviewFailed": "审查失败",
+      "debugInfo": "调试信息",
+      "analyzing": "分析中...",
+      "preparing": "准备中...",
+      "noModelConfigured": "未配置 Ollama 模型，请前往设置页选择模型",
+      "modelUnavailable": "模型不可用或未安装：{model}",
+      "precheckFailed": "预检失败",
+      "status": {
+        "pending": "等待中",
+        "processing": "处理中",
+        "completed": "已完成",
+        "failed": "失败"
+      },
+      "noActivePage": "无法获取当前页面信息",
+      "fetchingChanges": "正在获取代码变更...",
+      "noChangesFound": "没有找到代码变更",
+      "foundChanges": "找到 {count} 个代码变更，准备分析...",
+      "analyzingItem": "正在分析 {index}/{total}: {file}",
+      "analysisDone": "分析完成",
+      "requestFailedWithStatus": "请求失败，状态码 {status}",
+      "noServerResponse": "服务器没有响应"
+    }
+  }
+}
