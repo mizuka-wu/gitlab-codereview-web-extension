@@ -88,7 +88,7 @@ function updateStatus(detectionState: GitLabDetection) {
 const task = ref<AnalysisTask | null>(null);
 async function analysis() {
   if (task.value) return;
-  
+
   // 获取当前活动标签页的URL
   const tabs = await browser.tabs.query({
     active: true,
@@ -96,7 +96,7 @@ async function analysis() {
   });
   const currentTab = tabs[0];
   const mergeRequestUrl = currentTab?.url || "";
-  
+
   task.value = {
     mergeRequestUrl,
     uuid: uuid(),

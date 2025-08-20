@@ -1,5 +1,5 @@
 import browser from "webextension-polyfill";
-import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
 import { type DetectorSettings as Settings } from "../types/index.d";
 
 /**
@@ -182,7 +182,9 @@ function isMergeRequestPage(): boolean {
   // 显式排除新建 MR 页面
   if (/\/(?:-\/)?merge_requests\/new(?:\/|$)/.test(pathname)) return false;
   // 仅当路径中包含数字 IID 的 MR 详情页时返回 true
-  return /(?:\/-\/merge_requests\/|\/merge_requests\/)\d+(?:\/|$)/.test(pathname);
+  return /(?:\/-\/merge_requests\/|\/merge_requests\/)\d+(?:\/|$)/.test(
+    pathname
+  );
 }
 
 /**
@@ -230,7 +232,7 @@ async function handleApiRequest(request: ApiRequest): Promise<ApiResponse> {
       method: request.method,
       url: request.url,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...request.headers,
       },
       withCredentials: true,
@@ -251,20 +253,20 @@ async function handleApiRequest(request: ApiRequest): Promise<ApiResponse> {
       data: response.data,
     };
   } catch (error: any) {
-    console.error('API请求失败:', error);
-    
+    console.error("API请求失败:", error);
+
     // 格式化错误响应
     const errorResponse: ApiResponse = {
       success: false,
       error: {
-        message: error.message || '请求失败',
+        message: error.message || "请求失败",
       },
     };
 
     // 确保 error 对象存在
     if (!errorResponse.error) {
       errorResponse.error = {
-        message: '未知错误',
+        message: "未知错误",
       };
     }
 
@@ -281,7 +283,7 @@ async function handleApiRequest(request: ApiRequest): Promise<ApiResponse> {
       }
     } else if (error.request) {
       if (errorResponse.error) {
-        errorResponse.error.message = '服务器没有响应';
+        errorResponse.error.message = "服务器没有响应";
         errorResponse.error.details = {
           request: error.request,
         };
@@ -294,16 +296,16 @@ async function handleApiRequest(request: ApiRequest): Promise<ApiResponse> {
 
 // 处理 GitLab 特定的 API 请求
 async function handleGitLabApiRequest(
-  host: string, 
-  projectPath: string, 
-  mrIId: string | number, 
+  host: string,
+  projectPath: string,
+  mrIId: string | number,
   endpoint: string,
-  method: string = 'GET',
+  method: string = "GET",
   data?: any
 ): Promise<ApiResponse> {
   const baseUrl = `${host}/api/v4/projects/${projectPath}/merge_requests/${mrIId}`;
   const url = `${baseUrl}${endpoint}`;
-  
+
   return handleApiRequest({
     method,
     url,
@@ -335,8 +337,8 @@ window.addEventListener("load", async () => {
     if (isReviewPage) {
       document.body.classList.add("gitlab-review-page");
     }
-    
-    console.log('GitLab 页面已检测到，API 代理已启用');
+
+    console.log("GitLab 页面已检测到，API 代理已启用");
   }
 });
 
@@ -415,7 +417,7 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
     case "apiRequest": {
       return handleApiRequest(message.request);
     }
-    
+
     case "gitlabMrRequest": {
       return handleGitLabApiRequest(
         message.host,
@@ -426,23 +428,25 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
         message.data
       );
     }
-    
+
     case "getMrChanges": {
       return handleGitLabApiRequest(
         message.host,
         message.projectPath,
         message.mrIId,
-        '/changes',
-        'GET'
+        "/changes",
+        "GET"
       );
     }
-    
+
     case "postMrComment": {
-      console.log('处理 postMrComment 请求:', message);
-      
+      console.log("处理 postMrComment 请求:", message);
+
       // 获取 CSRF Token
-      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-      
+      const csrfToken = document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute("content");
+
       try {
         // 首先获取合并请求的真实 ID 和 diff_head_sha
         // 通过调用 changes API 获取必要信息
@@ -450,71 +454,84 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
           message.host,
           message.projectPath,
           message.mrIId,
-          '/changes',
-          'GET'
+          "/changes",
+          "GET"
         );
-        
+
         if (!changesResponse.success) {
-          console.error('获取合并请求信息失败:', changesResponse.error);
+          console.error("获取合并请求信息失败:", changesResponse.error);
           return changesResponse;
         }
-        
+
         // 从 changes 响应中提取真实的 merge_request_id 和 diff_head_sha
         const mrData = changesResponse.data;
         const realMrId = mrData.id; // 这是真实的数字 ID，不是 IID
-        const diffHeadSha = mrData.diff_refs?.head_sha || message.diffHeadSha || '';
-        
-        console.log('获取到的合并请求信息:', { realMrId, diffHeadSha });
-        
+        const diffHeadSha =
+          mrData.diff_refs?.head_sha || message.diffHeadSha || "";
+
+        console.log("获取到的合并请求信息:", { realMrId, diffHeadSha });
+
         // 使用 discussions API 而不是 notes API
-        let url = '';
-        
+        let url = "";
+
         // 构建 discussions API URL
         if (message.mrUrl) {
-          console.log('使用原始 mrUrl 构建 API URL:', message.mrUrl);
+          console.log("使用原始 mrUrl 构建 API URL:", message.mrUrl);
           const mrUrlObj = new URL(message.mrUrl);
-          const pathParts = mrUrlObj.pathname.split('/');
-          
+          const pathParts = mrUrlObj.pathname.split("/");
+
           // 移除路径中的 '-/merge_requests/{iid}' 部分
-          const projectPath = pathParts.slice(0, pathParts.indexOf('-') !== -1 ? 
-                                              pathParts.indexOf('-') : 
-                                              pathParts.indexOf('merge_requests'));
-          
+          const projectPath = pathParts.slice(
+            0,
+            pathParts.indexOf("-") !== -1
+              ? pathParts.indexOf("-")
+              : pathParts.indexOf("merge_requests")
+          );
+
           // 构建 discussions API URL
-          url = `${mrUrlObj.protocol}//${mrUrlObj.host}/api/v4/projects/${encodeURIComponent(projectPath.join('/').replace(/^\//, ''))}/merge_requests/${message.mrIId}/discussions`;
+          url = `${mrUrlObj.protocol}//${
+            mrUrlObj.host
+          }/api/v4/projects/${encodeURIComponent(
+            projectPath.join("/").replace(/^\//, "")
+          )}/merge_requests/${message.mrIId}/discussions`;
         } else {
           // 如果没有 mrUrl，使用原来的方式
-          const projectRoot = message.host.replace(/\/-\/merge_requests\/\d+(\/diffs)?$/, '');
-          url = `${projectRoot}/api/v4/projects/${encodeURIComponent(message.projectPath)}/merge_requests/${message.mrIId}/discussions`;
+          const projectRoot = message.host.replace(
+            /\/-\/merge_requests\/\d+(\/diffs)?$/,
+            ""
+          );
+          url = `${projectRoot}/api/v4/projects/${encodeURIComponent(
+            message.projectPath
+          )}/merge_requests/${message.mrIId}/discussions`;
         }
-        
-        console.log('构建的 API URL:', url);
-        
+
+        console.log("构建的 API URL:", url);
+
         // 构建符合成功 curl 命令的数据结构
         const originalData = message.data;
-        
+
         // 确保评论内容不为空
-        const noteContent = originalData.note || originalData.body || '';
-        if (!noteContent || noteContent.trim() === '') {
+        const noteContent = originalData.note || originalData.body || "";
+        if (!noteContent || noteContent.trim() === "") {
           return {
             success: false,
             error: {
-              message: '评论内容不能为空',
-              details: { note: noteContent }
-            }
+              message: "评论内容不能为空",
+              details: { note: noteContent },
+            },
           };
         }
-        
+
         // 确保 position 对象完整
         let position = originalData.position || {};
-        if (typeof position === 'string') {
+        if (typeof position === "string") {
           try {
             position = JSON.parse(position);
           } catch (e) {
-            console.error('解析 position 字符串失败:', e);
+            console.error("解析 position 字符串失败:", e);
           }
         }
-        
+
         // 确保 position 对象包含必要字段
         position = {
           base_sha: position.base_sha || mrData.diff_refs?.base_sha || null,
@@ -522,36 +539,36 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
           head_sha: diffHeadSha,
           old_path: position.old_path || position.new_path,
           new_path: position.new_path,
-          position_type: position.position_type || 'text',
+          position_type: position.position_type || "text",
           old_line: position.old_line || null,
           new_line: position.new_line,
-          ...position
+          ...position,
         };
-        
+
         // 确保必要的 SHA 值不为空
         if (!position.base_sha || !position.start_sha || !position.head_sha) {
-          console.warn('缺少必要的 SHA 值，使用备用值');
+          console.warn("缺少必要的 SHA 值，使用备用值");
           position.base_sha = position.base_sha || diffHeadSha;
           position.start_sha = position.start_sha || diffHeadSha;
           position.head_sha = position.head_sha || diffHeadSha;
         }
-        
+
         // 确保 line_range 存在且完整
-        if (!position.line_range || typeof position.line_range !== 'object') {
+        if (!position.line_range || typeof position.line_range !== "object") {
           position.line_range = {
             start: {
-              type: position.new_line ? 'new' : 'old',
+              type: position.new_line ? "new" : "old",
               old_line: position.old_line || null,
-              new_line: position.new_line || null
+              new_line: position.new_line || null,
             },
             end: {
-              type: position.new_line ? 'new' : 'old',
+              type: position.new_line ? "new" : "old",
               old_line: position.old_line || null,
-              new_line: position.new_line || null
-            }
+              new_line: position.new_line || null,
+            },
           };
         }
-        
+
         // 使用 discussions API 格式构建请求数据（使用 any 以便后续清理字段）
         const diffRefs = mrData.diff_refs || {};
         let positionPayload: any = {
@@ -561,7 +578,7 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
           position_type: "text",
           // 按文档要求同时提供 old_path 和 new_path
           old_path: position.old_path || position.new_path,
-          new_path: position.new_path || position.old_path
+          new_path: position.new_path || position.old_path,
         };
 
         // 行号只提供一侧：优先 new_line，否则 old_line
@@ -573,39 +590,41 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
 
         let discussionsData: any = {
           body: noteContent,
-          position: positionPayload
+          position: positionPayload,
         };
-        
+
         // 清理 position 中的 null/undefined 字段，避免服务端解析异常
         const sanitize = (obj: Record<string, any>) => {
-          const entries = Object.entries(obj).filter(([_, v]) => v !== null && v !== undefined);
+          const entries = Object.entries(obj).filter(
+            ([_, v]) => v !== null && v !== undefined
+          );
           return Object.fromEntries(entries);
         };
         discussionsData.position = sanitize(discussionsData.position);
-      
-      console.log('提交评论请求:', {
-        url,
-        discussionsData
-      });
-      
-      // 使用 handleApiRequest 发送请求
-      return handleApiRequest({
-        method: 'POST',
-        url,
-        data: discussionsData,
-        headers: {
-          'X-CSRF-Token': csrfToken || '',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      });
+
+        console.log("提交评论请求:", {
+          url,
+          discussionsData,
+        });
+
+        // 使用 handleApiRequest 发送请求
+        return handleApiRequest({
+          method: "POST",
+          url,
+          data: discussionsData,
+          headers: {
+            "X-CSRF-Token": csrfToken || "",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        });
       } catch (error) {
-        console.error('处理评论请求时发生错误:', error);
+        console.error("处理评论请求时发生错误:", error);
         return {
           success: false,
           error: {
-            message: error instanceof Error ? error.message : '未知错误'
+            message: error instanceof Error ? error.message : "未知错误",
           },
-          message: '处理评论请求失败'
+          message: "处理评论请求失败",
         };
       }
     }
