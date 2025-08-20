@@ -136,10 +136,37 @@ const ollamaModel = computed({
   }
 });
 
+// 将任意 URL 转为权限匹配用的 origin/*
+const toOriginPattern = (url: string): string => {
+  try {
+    const u = new URL((url || '').trim());
+    return `${u.origin}/*`;
+  } catch {
+    return '';
+  }
+};
+
+// 申请运行时主机权限（仅在支持的浏览器/上下文生效）
+const ensureHostPermissionForEndpoint = async (endpoint: string) => {
+  const origin = toOriginPattern(endpoint);
+  if (!origin) throw new Error('Ollama 地址不合法');
+  const permsApi: any = (browser as any).permissions;
+  // 在不支持 permissions API 的环境下直接跳过
+  if (!permsApi?.contains || !permsApi?.request) return;
+  const has = await permsApi.contains({ origins: [origin] });
+  console.log('权限结果', has)
+  if (!has) {
+    const granted = await permsApi.request({ origins: [origin] });
+    if (!granted) throw new Error(`未授予访问权限：${origin}`);
+  }
+};
+
 // 保存设置
 const saveSettings = async () => {
   try {
     isSaving.value = true;
+    // 在保存前为自定义 Ollama 地址申请运行时主机权限
+    await ensureHostPermissionForEndpoint(ollamaEndpoint.value);
     await browser.storage.sync.set({ settings: settings.value });
     // 广播设置更新，通知所有标签页与内容脚本
     try {
@@ -153,7 +180,8 @@ const saveSettings = async () => {
     message.success('设置已保存');
   } catch (error) {
     console.error('保存设置失败:', error);
-    message.error('保存失败，请重试');
+    const msg = (error as Error)?.message || '保存失败，请重试';
+    message.error(msg);
   } finally {
     isSaving.value = false;
   }

@@ -38,6 +38,10 @@
     "storage",
     "tabs"
   ],
+  "{{chrome}}.optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
   "{{firefox}}.permissions": [
     "activeTab",
     "storage",
