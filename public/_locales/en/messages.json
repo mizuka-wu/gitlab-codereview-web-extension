@@ -1,0 +1,5 @@
+{
+  "extName": { "message": "GitLab Code Review Assistant" },
+  "extDesc": { "message": "AI assistant for GitLab code review" },
+  "actionTitle": { "message": "GitLab Code Review Assistant" }
+}
