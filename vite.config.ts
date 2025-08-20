@@ -3,6 +3,9 @@ import vue from "@vitejs/plugin-vue";
 import webExtension, { readJsonFile } from "vite-plugin-web-extension";
 import path from "node:path";
 
+const INVALID_CHAR_REGEX = /[\x00-\x1F\x7F<>*#"{}|^[\]`;?:&=+$,]/g;
+const DRIVE_LETTER_REGEX = /^[a-z]:/i;
+
 function generateManifest() {
   const manifest = readJsonFile("src/manifest.json");
   const pkg = readJsonFile("package.json");
@@ -16,6 +19,21 @@ function generateManifest() {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        sanitizeFileName(name) {
+          const match = DRIVE_LETTER_REGEX.exec(name);
+          const driveLetter = match ? match[0] : "";
+          // substr 是被淘汰語法，因此要改 slice
+          return (
+            driveLetter +
+            name.slice(driveLetter.length).replace(INVALID_CHAR_REGEX, "")
+          );
+        },
+      },
+    },
+  },
   plugins: [
     vue(),
     webExtension({
@@ -29,7 +47,8 @@ export default defineConfig({
         chromiumProfile: path.resolve(process.cwd(), ".webext-profile"),
         startUrl: ["https://jihulab.com/"],
         // 明确指定 Chrome 可执行文件（macOS 常见路径）
-        chromiumBinary: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        chromiumBinary:
+          "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
         // 再通过 args 显式传递 user-data-dir，双保险
         args: [
           `--user-data-dir=${path.resolve(process.cwd(), ".webext-profile")}`,
