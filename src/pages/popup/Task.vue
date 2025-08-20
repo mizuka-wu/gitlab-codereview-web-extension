@@ -49,6 +49,9 @@
                 type="primary" :loading="task?.status === 'processing'" :disabled="task?.status === 'processing'">
                 {{ task?.status === 'processing' ? '分析中...' : '开始分析' }}
             </NButton>
+            <NButton v-if="task?.status === 'failed' && showGoToSettings" @click="goToOptions" type="default">
+                去设置
+            </NButton>
             <NButton v-if="task?.status === 'failed' || task?.status === 'completed'" @click="cancelTask"
                 type="default">
                 关闭
@@ -65,6 +68,8 @@ import { CheckmarkCircle, AlertCircle, Code as CodeOutline, ChevronDown, Chevron
 import type { AnalysisTask } from '../../types/index';
 import GitlabProxyManager from '../../task/gitlab-proxy';
 import { generateReview } from '../../task/agent';
+import { isOllamaModelAvailable } from '../../task/agent/ollama';
+import { DEFAULT_OLLAMA_END_POINT } from '../../constants';
 
 const task = defineModel<AnalysisTask | null>();
 const progress = ref(0);
@@ -72,6 +77,7 @@ const progressText = ref('准备中...');
 const errorMessage = ref('');
 const debugInfo = ref('');
 const showDebug = ref(false);
+const showGoToSettings = ref(false);
 
 // 切换调试信息显示
 function toggleDebug() {
@@ -108,6 +114,50 @@ function guessLanguage(filePath: string): string {
         case 'json': return 'JSON';
         default: return '';
     }
+}
+
+// 预检：检查是否配置并安装可用的 Ollama 模型
+async function precheckModel(): Promise<boolean> {
+    try {
+        showGoToSettings.value = false;
+        errorMessage.value = '';
+
+        const data = await browser.storage.sync.get('settings');
+        const settings: any = data?.settings ?? {};
+        const endpoint: string = settings?.aiAgent?.aiAgentConfig?.ollama?.endpoint ?? DEFAULT_OLLAMA_END_POINT;
+        const model: string = settings?.aiAgent?.aiAgentConfig?.ollama?.model ?? '';
+
+        if (!model) {
+            if (task.value) task.value.status = 'failed';
+            showGoToSettings.value = true;
+            errorMessage.value = '未配置 Ollama 模型，请前往设置页选择模型';
+            debugInfo.value = JSON.stringify({ endpoint, model }, null, 2);
+            return false;
+        }
+
+        const available = await isOllamaModelAvailable(endpoint, model).catch(() => false);
+        if (!available) {
+            if (task.value) task.value.status = 'failed';
+            showGoToSettings.value = true;
+            errorMessage.value = `模型不可用或未安装：${model}`;
+            debugInfo.value = JSON.stringify({ endpoint, model, available }, null, 2);
+            return false;
+        }
+
+        return true;
+    } catch (e) {
+        if (task.value) task.value.status = 'failed';
+        showGoToSettings.value = true;
+        errorMessage.value = (e as Error)?.message || '预检失败';
+        debugInfo.value = JSON.stringify(e, null, 2);
+        return false;
+    }
+}
+
+function goToOptions() {
+    try {
+        browser.runtime.openOptionsPage();
+    } catch {}
 }
 
 // 计算任务状态对应的样式和文本
@@ -155,6 +205,10 @@ async function startAnalysis() {
         if (!currentTab || !currentTab.url) {
             throw new Error('无法获取当前页面信息');
         }
+
+        // 预检模型可用性
+        const ok = await precheckModel();
+        if (!ok) return;
 
         // 更新任务状态和URL
         if (task.value) {
