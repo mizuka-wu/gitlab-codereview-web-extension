@@ -178,8 +178,11 @@ async function detectGitLab(): Promise<boolean> {
  * @returns {boolean} 是否是合并请求页面
  */
 function isMergeRequestPage(): boolean {
-  const url = window.location.href;
-  return url.includes("/merge_requests/") && /\/merge_requests\/\d+/.test(url);
+  const { pathname } = new URL(window.location.href);
+  // 显式排除新建 MR 页面
+  if (/\/(?:-\/)?merge_requests\/new(?:\/|$)/.test(pathname)) return false;
+  // 仅当路径中包含数字 IID 的 MR 详情页时返回 true
+  return /(?:\/-\/merge_requests\/|\/merge_requests\/)\d+(?:\/|$)/.test(pathname);
 }
 
 /**
@@ -187,28 +190,8 @@ function isMergeRequestPage(): boolean {
  * @returns {boolean} 是否是代码审查相关页面
  */
 function isCodeReviewPage(): boolean {
-  // 合并请求页面通常是代码审查页面
-  if (isMergeRequestPage()) {
-    return true;
-  }
-
-  // 检查是否在查看差异(diff)页面
-  const url = window.location.href;
-  if (
-    url.includes("/diffs") ||
-    url.includes("?view=parallel") ||
-    url.includes("?view=inline")
-  ) {
-    return true;
-  }
-
-  // 检查是否有代码差异元素
-  const hasDiffElements =
-    !!document.querySelector(".diff-files-holder") ||
-    !!document.querySelector(".diffs") ||
-    !!document.querySelector(".diff-file");
-
-  return hasDiffElements;
+  // 仅在 MR 详情页（带数字 IID）上视为代码审查页面
+  return isMergeRequestPage();
 }
 
 // ====================== GitLab API 代理部分 ======================
