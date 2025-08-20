@@ -38,6 +38,10 @@
     "storage",
     "tabs"
   ],
+  "{{chrome}}.host_permissions": [
+    "http://localhost:11434/*",
+    "http://127.0.0.1:11434/*"
+  ],
   "{{chrome}}.optional_host_permissions": [
     "http://*/*",
     "https://*/*"
@@ -45,7 +49,9 @@
   "{{firefox}}.permissions": [
     "activeTab",
     "storage",
-    "tabs"
+    "tabs",
+    "http://localhost:11434/*",
+    "http://127.0.0.1:11434/*"
   ],
   "background": {
     "{{chrome}}.service_worker": "src/background.ts",

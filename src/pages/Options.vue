@@ -28,10 +28,18 @@
             </NFormItem>
 
             <NFormItem label="模型名称">
-              <NInput v-model:value="ollamaModel" placeholder="llama3" />
-              <template #suffix>
-                <NText depth="3" style="font-size: 12px">要使用的模型名称</NText>
-              </template>
+              <NSpace align="center">
+                <NSelect
+                  v-model:value="ollamaModel"
+                  :options="ollamaModelOptions"
+                  filterable
+                  clearable
+                  placeholder="请选择或刷新本地模型"
+                  style="width: 240px"
+                />
+                <NButton @click="refreshModels" size="small" :loading="isLoadingModels">刷新</NButton>
+                <NButton @click="testOllama" size="small" tertiary>测试连接</NButton>
+              </NSpace>
             </NFormItem>
           </template>
         </NSpace>
@@ -79,6 +87,7 @@ import {
 } from 'naive-ui';
 import { DEFAUTL_PROMPT } from '../constants';
 import type { Settings } from '../types';
+import { listOllamaModels, isOllamaModelAvailable } from '../task/agent/ollama';
 
 const message = useMessage();
 
@@ -92,7 +101,7 @@ const settings = ref<Settings>({
     aiAgentConfig: {
       ollama: {
         endpoint: 'http://localhost:11434',
-        model: 'llama3'
+        model: ''
       }
     }
   },
@@ -114,7 +123,7 @@ const ensureOllamaConfig = () => {
   if (!settings.value.aiAgent.aiAgentConfig.ollama) {
     settings.value.aiAgent.aiAgentConfig.ollama = {
       endpoint: 'http://localhost:11434',
-      model: 'llama3'
+      model: ''
     };
   }
 };
@@ -129,12 +138,58 @@ const ollamaEndpoint = computed({
 });
 
 const ollamaModel = computed({
-  get: () => settings.value.aiAgent.aiAgentConfig.ollama?.model ?? 'llama3',
+  get: () => settings.value.aiAgent.aiAgentConfig.ollama?.model ?? '',
   set: (v: string) => {
     ensureOllamaConfig();
     settings.value.aiAgent.aiAgentConfig.ollama!.model = v;
   }
 });
+
+// 模型列表与操作
+const isLoadingModels = ref(false);
+const models = ref<string[]>([]);
+const ollamaModelOptions = computed(() =>
+  Array.from(new Set([...(models.value || []), ...(ollamaModel.value ? [ollamaModel.value] : [])]))
+    .filter(Boolean)
+    .map((n) => ({ label: n as string, value: n as string }))
+);
+
+const refreshModels = async () => {
+  try {
+    isLoadingModels.value = true;
+    await ensureHostPermissionForEndpoint(ollamaEndpoint.value);
+    const list = await listOllamaModels(ollamaEndpoint.value);
+    models.value = list;
+    message.success(`已获取模型 ${list.length} 个`);
+  } catch (e) {
+    console.error('获取模型失败:', e);
+    const msg = (e as Error)?.message || '获取模型失败';
+    message.error(msg);
+  } finally {
+    isLoadingModels.value = false;
+  }
+};
+
+const testOllama = async () => {
+  try {
+    await ensureHostPermissionForEndpoint(ollamaEndpoint.value);
+    if (ollamaModel.value) {
+      const ok = await isOllamaModelAvailable(ollamaEndpoint.value, ollamaModel.value);
+      if (ok) {
+        message.success('连接正常，模型可用');
+      } else {
+        message.warning('连接正常，但未找到该模型');
+      }
+    } else {
+      const list = await listOllamaModels(ollamaEndpoint.value);
+      message.success(`连接正常，可用模型 ${list.length} 个`);
+    }
+  } catch (e) {
+    console.error('测试连接失败:', e);
+    const msg = (e as Error)?.message || '测试连接失败';
+    message.error(msg);
+  }
+};
 
 // 将任意 URL 转为权限匹配用的 origin/*
 const toOriginPattern = (url: string): string => {

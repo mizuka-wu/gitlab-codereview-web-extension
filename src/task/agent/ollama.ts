@@ -27,8 +27,11 @@ export async function generateWithOllama(opts: GenerateWithOllamaOptions): Promi
   setupTimeout();
 
   try {
+    if (!opts.model) {
+      throw new Error('未配置模型名称');
+    }
     const body: any = {
-      model: opts.model || 'llama3',
+      model: opts.model,
       prompt: opts.prompt,
       stream: opts.stream ?? false,
     };
@@ -122,3 +125,33 @@ export async function generateWithOllama(opts: GenerateWithOllamaOptions): Promi
     if (timeout) clearTimeout(timeout);
   }
 }
+
+// List local models from Ollama
+export async function listOllamaModels(endpoint: string): Promise<string[]> {
+  const ep = normalizeEndpoint(endpoint || 'http://localhost:11434');
+  const url = `${ep}/api/tags`;
+  const res = await fetch(url, { method: 'GET' });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`获取模型列表失败: ${res.status} ${res.statusText} ${text ? '- ' + text : ''}`);
+  }
+  const data = await res.json().catch(() => ({} as any));
+  const arr: any[] = Array.isArray(data?.models) ? data.models : [];
+  const names = arr
+    .map((m: any) => m?.name || m?.model)
+    .filter((n: any): n is string => typeof n === 'string' && !!n);
+  // de-duplicate and sort by name
+  return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+}
+
+// Check if a model is available locally
+export async function isOllamaModelAvailable(endpoint: string, model: string): Promise<boolean> {
+  if (!model) return false;
+  try {
+    const models = await listOllamaModels(endpoint);
+    return models.includes(model);
+  } catch {
+    return false;
+  }
+}
+

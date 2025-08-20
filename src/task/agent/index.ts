@@ -41,7 +41,10 @@ export async function generateReview(params: GenerateReviewParams): Promise<stri
     case 'ollama':
     default: {
       const endpoint: string = settings?.aiAgent?.aiAgentConfig?.ollama?.endpoint ?? DEFAULT_OLLAMA_END_POINT;
-      const model: string = settings?.aiAgent?.aiAgentConfig?.ollama?.model ?? 'llama3';
+      const model: string = settings?.aiAgent?.aiAgentConfig?.ollama?.model ?? '';
+      if (!model) {
+        throw new Error('未配置 Ollama 模型，请前往设置页选择模型');
+      }
       // use stream mode to reduce timeout risk on long generations
       const text = await generateWithOllama({ endpoint, model, prompt, stream: true, timeoutMs: 120000 });
       return (text ?? '').toString();
