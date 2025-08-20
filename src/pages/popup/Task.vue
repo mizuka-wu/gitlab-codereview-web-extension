@@ -7,6 +7,7 @@
 
         <div class="task-content">
             <div class="task-status">
+                <div>请不要关闭此页面</div>
                 <div class="status-badge" :class="statusClass">{{ statusText }}</div>
                 <div class="task-url" v-if="task?.mergeRequestUrl">{{ task?.mergeRequestUrl }}</div>
             </div>

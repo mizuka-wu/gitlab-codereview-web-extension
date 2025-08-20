@@ -43,15 +43,6 @@ const GITLAB_FEATURES = {
 
   // GitLab API端点
   API_ENDPOINTS: ["/api/v4/"],
-
-  // GitLab相关的URL模式
-  URL_PATTERNS: [
-    /gitlab\.com/, // GitLab官方
-    /jihulab\.com/, // 极狐GitLab
-    /gitcode\.net/, // GitCode
-    /\/gitlab\//, // 自部署GitLab路径
-    /gitlab/i, // URL中包含gitlab字样
-  ],
 };
 
 // 默认设置
@@ -88,13 +79,6 @@ async function detectGitLab(): Promise<boolean> {
 
   let score = 0;
 
-  // 检查URL
-  const currentUrl = window.location.href;
-  if (
-    GITLAB_FEATURES.URL_PATTERNS.some((pattern) => pattern.test(currentUrl))
-  ) {
-    score += 3; // URL匹配给予较高的分数
-  }
 
   // 检查DOM元素
   GITLAB_FEATURES.ELEMENTS.forEach((selector) => {

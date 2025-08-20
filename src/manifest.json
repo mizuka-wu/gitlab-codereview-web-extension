@@ -26,10 +26,7 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*.gitlab.com/*",
-        "*://gitlab.com/*",
-        "*://*.jihulab.com/*",
-        "*://jihulab.com/*"
+        "<all_urls>"
       ],
       "js": [
         "src/content/index.ts"
@@ -42,19 +39,13 @@
     "tabs"
   ],
   "{{chrome}}.host_permissions": [
-    "http://localhost:11434/*",
-    "https://localhost:11434/*",
-    "https://gitlab.com/*",
-    "https://jihulab.com/*"
+    "<all_urls>"
   ],
   "{{firefox}}.permissions": [
     "activeTab",
     "storage",
     "tabs",
-    "http://localhost:11434/*",
-    "https://localhost:11434/*",
-    "https://gitlab.com/*",
-    "https://jihulab.com/*"
+    "<all_urls>"
   ],
   "background": {
     "{{chrome}}.service_worker": "src/background.ts",
