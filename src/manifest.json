@@ -38,14 +38,10 @@
     "storage",
     "tabs"
   ],
-  "{{chrome}}.host_permissions": [
-    "<all_urls>"
-  ],
   "{{firefox}}.permissions": [
     "activeTab",
     "storage",
-    "tabs",
-    "<all_urls>"
+    "tabs"
   ],
   "background": {
     "{{chrome}}.service_worker": "src/background.ts",
