@@ -1,8 +1,10 @@
-name: Build and Archive
+name: Build and Release
 
 on:
   push:
     branches: [ master ]
+  release:
+    types: [created]  # 当创建新Release时触发
 
 jobs:
   build-and-package:
@@ -34,8 +36,17 @@ jobs:
           zip -r dist.zip dist/*
           echo "Zipped size: $(du -h dist.zip | cut -f1)"
 
-      - name: Upload artifact
+      - name: Upload artifact (for push events)
+        if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
           name: dist-package
           path: dist.zip
+
+      - name: Upload to Release (for release events)
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
