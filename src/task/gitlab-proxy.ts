@@ -1,4 +1,5 @@
 import browser from "webextension-polyfill";
+import { stripThinkTags, isNoSuggestionMessage } from "../utils/review";
 
 /**
  * GitLab 管理器代理类
@@ -183,7 +184,7 @@ export default class GitlabProxyManager {
     body: string;
     ref?: string;
   }) {
-    const sanitizedBody = this.stripThinkTags(body);
+    const sanitizedBody = stripThinkTags(body);
     console.log('提交评论参数:', { newPath, newLine, oldPath, oldLine, body: sanitizedBody, ref });
     
     // 获取当前页面上的 MR 信息
@@ -325,30 +326,7 @@ export default class GitlabProxyManager {
     return Math.abs(hash).toString(16); // 转为正数的16进制，避免出现负号
   }
 
-  /**
-   * 移除模型返回中的 <think>...</think> 思考内容
-   */
-  private stripThinkTags(input: string): string {
-    if (!input) return '';
-    try {
-      return input.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
-    } catch {
-      return input;
-    }
-  }
-
-  /**
-   * 判断是否为“无建议/通过”的简短回复
-   */
-  private isNoSuggestionMessage(input: string): boolean {
-    const s = (input || '').trim().toLowerCase();
-    if (!s) return false;
-    // 匹配："lgtm" 或 "lgtm（无修改建议）" 或 常见中文表述
-    return (
-      /^lgtm(?:\s*[（(]\s*无修改建议\s*[）)])?$/.test(s) ||
-      /^(无修改建议|无意见|没有问题)$/.test(s)
-    );
-  }
+  // stripThinkTags / isNoSuggestionMessage 由公共工具模块提供
 
   /**
    * 代码审查
@@ -361,12 +339,12 @@ export default class GitlabProxyManager {
     ref?: string;
   }) {
     // 先移除 <think> 内容后再校验是否为空
-    const sanitizedMessage = this.stripThinkTags(message);
+    const sanitizedMessage = stripThinkTags(message);
     if (!sanitizedMessage || sanitizedMessage.trim() === '') {
       throw new Error('评论内容不能为空');
     }
     // 若 AI 表示“无建议”，跳过创建讨论
-    if (this.isNoSuggestionMessage(sanitizedMessage)) {
+    if (isNoSuggestionMessage(sanitizedMessage)) {
       console.log('AI 返回无建议，跳过创建讨论');
       return { skipped: true, reason: 'no_suggestion' };
     }

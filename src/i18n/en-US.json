@@ -107,7 +107,8 @@
       "analyzingItem": "Analyzing {index}/{total}: {file}",
       "analysisDone": "Analysis complete",
       "requestFailedWithStatus": "Request failed with status {status}",
-      "noServerResponse": "No response from server"
+      "noServerResponse": "No response from server",
+      "skippedNoSuggestionCount": "Skipped {count} no-suggestion comments"
     }
   }
 }

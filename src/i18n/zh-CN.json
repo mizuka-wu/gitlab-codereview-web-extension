@@ -107,7 +107,8 @@
       "analyzingItem": "正在分析 {index}/{total}: {file}",
       "analysisDone": "分析完成",
       "requestFailedWithStatus": "请求失败，状态码 {status}",
-      "noServerResponse": "服务器没有响应"
+      "noServerResponse": "服务器没有响应",
+      "skippedNoSuggestionCount": "已跳过 {count} 条无建议评论"
     }
   }
 }

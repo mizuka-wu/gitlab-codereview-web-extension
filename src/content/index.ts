@@ -1,5 +1,6 @@
 import browser from "webextension-polyfill";
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
+import { stripThinkTags, isNoSuggestionMessage } from "../utils/review";
 import { type DetectorSettings as Settings } from "../types/index.d";
 
 /**
@@ -187,25 +188,7 @@ function getProjectId(): string | null {
   return document.body.getAttribute("data-project-id");
 }
 
-// ============= 公共工具：清理与判定无建议回复 =============
-function stripThinkTags(input: string): string {
-  if (!input) return "";
-  try {
-    return input.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, "").trim();
-  } catch {
-    return input;
-  }
-}
-
-function isNoSuggestionMessage(input: string): boolean {
-  const s = (input || "").trim().toLowerCase();
-  if (!s) return false;
-  return (
-    /^lgtm(?:\s*[（(]\s*无修改建议\s*[）)])?$/.test(s) ||
-    /^(无修改建议|无意见|没有问题)$/.test(s) ||
-    /^looks\s+good(?:\s+to\s+me)?!?$/.test(s)
-  );
-}
+// stripThinkTags / isNoSuggestionMessage 改为使用公共工具模块
 
 // ====================== GitLab API 代理部分 ======================
 

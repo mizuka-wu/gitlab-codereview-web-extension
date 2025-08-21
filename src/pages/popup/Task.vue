@@ -10,6 +10,9 @@
                 <div>{{ $t('popup.task.keepPageOpen') }}</div>
                 <div class="status-badge" :class="statusClass">{{ statusText }}</div>
                 <div class="task-url" v-if="task?.mergeRequestUrl">{{ task?.mergeRequestUrl }}</div>
+                <div class="skipped-info" v-if="skippedCount > 0">
+                    {{ $t('popup.task.skippedNoSuggestionCount', { count: skippedCount }) }}
+                </div>
             </div>
 
             <div class="task-progress" v-if="task?.status === 'processing'">
@@ -71,6 +74,7 @@ import GitlabProxyManager from '../../task/gitlab-proxy';
 import { generateReview } from '../../task/agent';
 import { isOllamaModelAvailable } from '../../task/agent/agent';
 import { DEFAULT_OLLAMA_END_POINT } from '../../constants';
+import { stripThinkTags, isNoSuggestionMessage } from '../../utils/review';
 
 const { t } = useI18n();
 
@@ -81,32 +85,14 @@ const errorMessage = ref('');
 const debugInfo = ref('');
 const showDebug = ref(false);
 const showGoToSettings = ref(false);
+const skippedCount = ref(0);
 
 // 切换调试信息显示
 function toggleDebug() {
     showDebug.value = !showDebug.value;
 }
 
-// 去除大模型的思考标签内容
-function stripThinkTags(input: string): string {
-    if (!input) return '';
-    try {
-        return input.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
-    } catch {
-        return input;
-    }
-}
-
-// 判定是否为“无建议/通过”的简短回复
-function isNoSuggestionMessage(input: string): boolean {
-    const s = (input || '').trim().toLowerCase();
-    if (!s) return false;
-    return (
-        /^lgtm(?:\s*[（(]\s*无修改建议\s*[）)])?$/.test(s) ||
-        /^(无修改建议|无意见|没有问题)$/.test(s) ||
-        /^looks\s+good(?:\s+to\s+me)?!?$/.test(s)
-    );
-}
+// stripThinkTags / isNoSuggestionMessage 改为使用公共工具模块
 
 // 简单根据文件扩展名猜测编程语言
 function guessLanguage(filePath: string): string {
@@ -358,6 +344,7 @@ async function runAnalysisTask() {
 
         progress.value = 30;
         progressText.value = t('popup.task.foundChanges', { count: changes.length });
+        skippedCount.value = 0;
 
         // 模拟AI分析过程
         for (let i = 0; i < changes.length; i++) {
@@ -376,15 +363,19 @@ async function runAnalysisTask() {
             const sanitized = stripThinkTags(message);
             if (isNoSuggestionMessage(sanitized)) {
                 console.log('AI 返回无建议，跳过当前文件讨论:', change.new_path || change.old_path);
+                skippedCount.value++;
                 continue;
             }
 
             // 通过代理提交评论
-            await gitlabManager.codeReview({
+            const res = await gitlabManager.codeReview({
                 change,
                 message,
                 ref
             });
+            if (res && (((res as any).skipped) || ((res as any).data && (res as any).data.skipped))) {
+                skippedCount.value++;
+            }
         }
 
         // 完成
