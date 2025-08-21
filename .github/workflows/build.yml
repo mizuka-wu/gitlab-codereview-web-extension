@@ -2,7 +2,7 @@ name: Build and Archive
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ master ]
 
 jobs:
   build-and-package:
@@ -19,7 +19,10 @@ jobs:
           cache: 'pnpm'
 
       - name: Install pnpm
-        run: npm install -g pnpm@8
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
