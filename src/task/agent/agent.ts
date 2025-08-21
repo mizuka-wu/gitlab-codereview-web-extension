@@ -1,7 +1,7 @@
 // Ollama client implementation
 // Supports both non-stream and stream (NDJSON) modes for /api/generate
 
-export type GenerateWithOllamaOptions = {
+export type GenerateWithAgentOptions = {
   endpoint: string;
   model: string;
   prompt: string;
@@ -11,11 +11,13 @@ export type GenerateWithOllamaOptions = {
 };
 
 function normalizeEndpoint(endpoint: string) {
-  return endpoint.replace(/\/$/, '');
+  return endpoint.replace(/\/$/, "");
 }
 
-export async function generateWithOllama(opts: GenerateWithOllamaOptions): Promise<string> {
-  const endpoint = normalizeEndpoint(opts.endpoint || 'http://localhost:11434');
+export async function generateWithAgent(
+  opts: GenerateWithAgentOptions
+): Promise<string> {
+  const endpoint = normalizeEndpoint(opts.endpoint || "http://localhost:11434");
   const url = `${endpoint}/api/generate`;
   const controller = new AbortController();
   // For streaming, the timeout is treated as idle-timeout and will be reset on each chunk
@@ -28,7 +30,7 @@ export async function generateWithOllama(opts: GenerateWithOllamaOptions): Promi
 
   try {
     if (!opts.model) {
-      throw new Error('未配置模型名称');
+      throw new Error("未配置模型名称");
     }
     const body: any = {
       model: opts.model,
@@ -38,27 +40,31 @@ export async function generateWithOllama(opts: GenerateWithOllamaOptions): Promi
     if (opts.options) body.options = opts.options;
 
     const res = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
 
     if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(`Ollama 请求失败: ${res.status} ${res.statusText} ${text ? '- ' + text : ''}`);
+      const text = await res.text().catch(() => "");
+      throw new Error(
+        `Ollama 请求失败: ${res.status} ${res.statusText} ${
+          text ? "- " + text : ""
+        }`
+      );
     }
 
     // If stream mode, parse NDJSON chunks and accumulate
     if (body.stream) {
       const reader = res.body?.getReader();
-      if (!reader) throw new Error('浏览器不支持流式读取 Response。');
+      if (!reader) throw new Error("浏览器不支持流式读取 Response。");
 
-      let result = '';
-      const decoder = new TextDecoder('utf-8');
-      let buffer = '';
+      let result = "";
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -68,13 +74,13 @@ export async function generateWithOllama(opts: GenerateWithOllamaOptions): Promi
 
         // Process complete lines
         let newlineIndex: number;
-        while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
           const line = buffer.slice(0, newlineIndex).trim();
           buffer = buffer.slice(newlineIndex + 1);
           if (!line) continue;
           try {
             const obj = JSON.parse(line);
-            if (typeof obj?.response === 'string') result += obj.response;
+            if (typeof obj?.response === "string") result += obj.response;
             // Ollama sends done=true when finished
             if (obj?.done) {
               return result;
@@ -90,7 +96,7 @@ export async function generateWithOllama(opts: GenerateWithOllamaOptions): Promi
       if (rest) {
         try {
           const obj = JSON.parse(rest);
-          if (typeof obj?.response === 'string') result += obj.response;
+          if (typeof obj?.response === "string") result += obj.response;
         } catch {
           // ignore
         }
@@ -99,10 +105,10 @@ export async function generateWithOllama(opts: GenerateWithOllamaOptions): Promi
     }
 
     // With stream=false, Ollama returns a single JSON object
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
       const data = await res.json();
-      if (typeof data?.response === 'string') return data.response;
+      if (typeof data?.response === "string") return data.response;
       // Fallback if structure changes
       return JSON.stringify(data);
     }
@@ -111,14 +117,14 @@ export async function generateWithOllama(opts: GenerateWithOllamaOptions): Promi
     const text = await res.text();
     try {
       const json = JSON.parse(text);
-      if (typeof json?.response === 'string') return json.response;
+      if (typeof json?.response === "string") return json.response;
       return text;
     } catch {
       return text;
     }
   } catch (err: any) {
-    if (err?.name === 'AbortError') {
-      throw new Error('Ollama 请求超时');
+    if (err?.name === "AbortError") {
+      throw new Error("Ollama 请求超时");
     }
     throw err;
   } finally {
@@ -128,24 +134,31 @@ export async function generateWithOllama(opts: GenerateWithOllamaOptions): Promi
 
 // List local models from Ollama
 export async function listOllamaModels(endpoint: string): Promise<string[]> {
-  const ep = normalizeEndpoint(endpoint || 'http://localhost:11434');
+  const ep = normalizeEndpoint(endpoint || "http://localhost:11434");
   const url = `${ep}/api/tags`;
-  const res = await fetch(url, { method: 'GET' });
+  const res = await fetch(url, { method: "GET" });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`获取模型列表失败: ${res.status} ${res.statusText} ${text ? '- ' + text : ''}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `获取模型列表失败: ${res.status} ${res.statusText} ${
+        text ? "- " + text : ""
+      }`
+    );
   }
   const data = await res.json().catch(() => ({} as any));
   const arr: any[] = Array.isArray(data?.models) ? data.models : [];
   const names = arr
     .map((m: any) => m?.name || m?.model)
-    .filter((n: any): n is string => typeof n === 'string' && !!n);
+    .filter((n: any): n is string => typeof n === "string" && !!n);
   // de-duplicate and sort by name
   return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
 }
 
 // Check if a model is available locally
-export async function isOllamaModelAvailable(endpoint: string, model: string): Promise<boolean> {
+export async function isOllamaModelAvailable(
+  endpoint: string,
+  model: string
+): Promise<boolean> {
   if (!model) return false;
   try {
     const models = await listOllamaModels(endpoint);
@@ -154,4 +167,3 @@ export async function isOllamaModelAvailable(endpoint: string, model: string): P
     return false;
   }
 }
-

@@ -338,6 +338,19 @@ export default class GitlabProxyManager {
   }
 
   /**
+   * 判断是否为“无建议/通过”的简短回复
+   */
+  private isNoSuggestionMessage(input: string): boolean {
+    const s = (input || '').trim().toLowerCase();
+    if (!s) return false;
+    // 匹配："lgtm" 或 "lgtm（无修改建议）" 或 常见中文表述
+    return (
+      /^lgtm(?:\s*[（(]\s*无修改建议\s*[）)])?$/.test(s) ||
+      /^(无修改建议|无意见|没有问题)$/.test(s)
+    );
+  }
+
+  /**
    * 代码审查
    * @param options 审查选项
    * @returns 审查结果
@@ -351,6 +364,11 @@ export default class GitlabProxyManager {
     const sanitizedMessage = this.stripThinkTags(message);
     if (!sanitizedMessage || sanitizedMessage.trim() === '') {
       throw new Error('评论内容不能为空');
+    }
+    // 若 AI 表示“无建议”，跳过创建讨论
+    if (this.isNoSuggestionMessage(sanitizedMessage)) {
+      console.log('AI 返回无建议，跳过创建讨论');
+      return { skipped: true, reason: 'no_suggestion' };
     }
     // 根据变更类型决定如何提交评论
     if (change.new_file) {

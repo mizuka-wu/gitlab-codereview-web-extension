@@ -69,7 +69,7 @@ import { CheckmarkCircle, AlertCircle, Code as CodeOutline, ChevronDown, Chevron
 import type { AnalysisTask } from '../../types/index';
 import GitlabProxyManager from '../../task/gitlab-proxy';
 import { generateReview } from '../../task/agent';
-import { isOllamaModelAvailable } from '../../task/agent/ollama';
+import { isOllamaModelAvailable } from '../../task/agent/agent';
 import { DEFAULT_OLLAMA_END_POINT } from '../../constants';
 
 const { t } = useI18n();
@@ -85,6 +85,27 @@ const showGoToSettings = ref(false);
 // 切换调试信息显示
 function toggleDebug() {
     showDebug.value = !showDebug.value;
+}
+
+// 去除大模型的思考标签内容
+function stripThinkTags(input: string): string {
+    if (!input) return '';
+    try {
+        return input.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
+    } catch {
+        return input;
+    }
+}
+
+// 判定是否为“无建议/通过”的简短回复
+function isNoSuggestionMessage(input: string): boolean {
+    const s = (input || '').trim().toLowerCase();
+    if (!s) return false;
+    return (
+        /^lgtm(?:\s*[（(]\s*无修改建议\s*[）)])?$/.test(s) ||
+        /^(无修改建议|无意见|没有问题)$/.test(s) ||
+        /^looks\s+good(?:\s+to\s+me)?!?$/.test(s)
+    );
 }
 
 // 简单根据文件扩展名猜测编程语言
@@ -245,7 +266,7 @@ async function precheckModel(): Promise<boolean> {
 function goToOptions() {
     try {
         browser.runtime.openOptionsPage();
-    } catch {}
+    } catch { }
 }
 
 // 计算任务状态对应的样式和文本
@@ -350,6 +371,13 @@ async function runAnalysisTask() {
                 language: guessLanguage(change.new_path || change.old_path || ''),
                 context: ''
             });
+
+            // 若 AI 表示“无建议”，跳过创建讨论
+            const sanitized = stripThinkTags(message);
+            if (isNoSuggestionMessage(sanitized)) {
+                console.log('AI 返回无建议，跳过当前文件讨论:', change.new_path || change.old_path);
+                continue;
+            }
 
             // 通过代理提交评论
             await gitlabManager.codeReview({

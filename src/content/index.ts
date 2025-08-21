@@ -187,6 +187,26 @@ function getProjectId(): string | null {
   return document.body.getAttribute("data-project-id");
 }
 
+// ============= 公共工具：清理与判定无建议回复 =============
+function stripThinkTags(input: string): string {
+  if (!input) return "";
+  try {
+    return input.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, "").trim();
+  } catch {
+    return input;
+  }
+}
+
+function isNoSuggestionMessage(input: string): boolean {
+  const s = (input || "").trim().toLowerCase();
+  if (!s) return false;
+  return (
+    /^lgtm(?:\s*[（(]\s*无修改建议\s*[）)])?$/.test(s) ||
+    /^(无修改建议|无意见|没有问题)$/.test(s) ||
+    /^looks\s+good(?:\s+to\s+me)?!?$/.test(s)
+  );
+}
+
 // ====================== GitLab API 代理部分 ======================
 
 // 定义请求类型
@@ -511,6 +531,13 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
               details: { note: noteContent },
             },
           };
+        }
+
+        // 若为“无建议/通过”的简短回复，则跳过创建讨论
+        const sanitized = stripThinkTags(noteContent);
+        if (isNoSuggestionMessage(sanitized)) {
+          console.log("检测到无建议回复，跳过创建讨论");
+          return { success: true, data: { skipped: true, reason: "no_suggestion" } };
         }
 
         // 确保 position 对象完整

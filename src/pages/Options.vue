@@ -8,12 +8,8 @@
       <NCard :title="$t('options.languageSettings')" class="settings-section">
         <NSpace vertical>
           <NFormItem :label="$t('options.uiLanguage')">
-            <NSelect
-              v-model:value="locale"
-              :options="localeOptions"
-              style="width: 200px"
-              @update:value="onLocaleChange"
-            />
+            <NSelect v-model:value="locale" :options="localeOptions" style="width: 200px"
+              @update:value="onLocaleChange" />
           </NFormItem>
         </NSpace>
       </NCard>
@@ -42,15 +38,10 @@
 
             <NFormItem :label="$t('options.modelName')">
               <NSpace align="center">
-                <NSelect
-                  v-model:value="ollamaModel"
-                  :options="ollamaModelOptions"
-                  filterable
-                  clearable
-                  :placeholder="$t('options.selectOrRefreshModel')"
-                  style="width: 240px"
-                />
-                <NButton @click="refreshModels" size="small" :loading="isLoadingModels">{{ $t('common.refresh') }}</NButton>
+                <NSelect v-model:value="ollamaModel" :options="ollamaModelOptions" filterable clearable
+                  :placeholder="$t('options.selectOrRefreshModel')" style="width: 240px" />
+                <NButton @click="refreshModels" size="small" :loading="isLoadingModels">{{ $t('common.refresh') }}
+                </NButton>
                 <NButton @click="testOllama" size="small" tertiary>{{ $t('common.testConnection') }}</NButton>
               </NSpace>
             </NFormItem>
@@ -58,40 +49,21 @@
 
           <template v-if="settings.aiAgent.current === 'openai'">
             <NFormItem :label="$t('options.apiKey')">
-              <NInput 
-                v-model:value="openaiApiKey" 
-                type="password" 
-                :placeholder="$t('options.enterOpenAIKey')"
-                style="width: 400px"
-              />
+              <NInput v-model:value="openaiApiKey" type="password" :placeholder="$t('options.enterOpenAIKey')"
+                style="width: 400px" />
             </NFormItem>
-            
+
             <NFormItem :label="$t('options.baseUrl')">
-              <NInput 
-                v-model:value="openaiBaseUrl" 
-                :placeholder="'https://api.openai.com'"
-                style="width: 400px"
-              />
+              <NInput v-model:value="openaiBaseUrl" :placeholder="'https://api.openai.com'" style="width: 400px" />
             </NFormItem>
-            
+
             <NFormItem :label="$t('options.modelName')">
-              <NSelect
-                v-model:value="openaiModel"
-                :options="openaiModelOptions"
-                filterable
-                clearable
-                :placeholder="$t('options.selectModel')"
-                style="width: 240px"
-              />
+              <NSelect v-model:value="openaiModel" :options="openaiModelOptions" filterable clearable
+                :placeholder="$t('options.selectModel')" style="width: 240px" />
             </NFormItem>
-            
+
             <NFormItem :label="$t('options.timeout')">
-              <NInput 
-                v-model:value="openaiTimeout" 
-                type="number" 
-                :placeholder="'60000'"
-                style="width: 200px"
-              />
+              <NInput v-model:value="openaiTimeout" type="number" :placeholder="'60000'" style="width: 200px" />
               <template #suffix>
                 <NText depth="3" style="font-size: 12px">ms</NText>
               </template>
@@ -100,40 +72,21 @@
 
           <template v-if="settings.aiAgent.current === 'claude'">
             <NFormItem :label="$t('options.apiKey')">
-              <NInput 
-                v-model:value="claudeApiKey" 
-                type="password" 
-                :placeholder="$t('options.enterClaudeKey')"
-                style="width: 400px"
-              />
+              <NInput v-model:value="claudeApiKey" type="password" :placeholder="$t('options.enterClaudeKey')"
+                style="width: 400px" />
             </NFormItem>
-            
+
             <NFormItem :label="$t('options.baseUrl')">
-              <NInput 
-                v-model:value="claudeBaseUrl" 
-                :placeholder="'https://api.anthropic.com'"
-                style="width: 400px"
-              />
+              <NInput v-model:value="claudeBaseUrl" :placeholder="'https://api.anthropic.com'" style="width: 400px" />
             </NFormItem>
-            
+
             <NFormItem :label="$t('options.modelName')">
-              <NSelect
-                v-model:value="claudeModel"
-                :options="claudeModelOptions"
-                filterable
-                clearable
-                :placeholder="$t('options.selectModel')"
-                style="width: 240px"
-              />
+              <NSelect v-model:value="claudeModel" :options="claudeModelOptions" filterable clearable
+                :placeholder="$t('options.selectModel')" style="width: 240px" />
             </NFormItem>
-            
+
             <NFormItem :label="$t('options.timeout')">
-              <NInput 
-                v-model:value="claudeTimeout" 
-                type="number" 
-                :placeholder="'60000'"
-                style="width: 200px"
-              />
+              <NInput v-model:value="claudeTimeout" type="number" :placeholder="'60000'" style="width: 200px" />
               <template #suffix>
                 <NText depth="3" style="font-size: 12px">ms</NText>
               </template>
@@ -142,46 +95,29 @@
 
           <template v-if="settings.aiAgent.current === 'openapi'">
             <NFormItem :label="$t('options.apiKey')">
-              <NInput 
-                v-model:value="openapiApiKey" 
-                type="password" 
-                :placeholder="$t('options.enterOpenAPIKey')"
-                style="width: 400px"
-              />
+              <NInput v-model:value="openapiApiKey" type="password" :placeholder="$t('options.enterOpenAPIKey')"
+                style="width: 400px" />
               <template #suffix>
                 <NText depth="3" style="font-size: 12px">{{ $t('options.optional') }}</NText>
               </template>
             </NFormItem>
-            
+
             <NFormItem :label="$t('options.baseUrl')">
-              <NInput 
-                v-model:value="openapiBaseUrl" 
-                :placeholder="'http://localhost:8000'"
-                style="width: 400px"
-              />
+              <NInput v-model:value="openapiBaseUrl" :placeholder="'http://localhost:8000'" style="width: 400px" />
               <template #suffix>
                 <NText depth="3" style="font-size: 12px">{{ $t('options.required') }}</NText>
               </template>
             </NFormItem>
-            
+
             <NFormItem :label="$t('options.modelName')">
-              <NInput 
-                v-model:value="openapiModel" 
-                :placeholder="'default'"
-                style="width: 240px"
-              />
+              <NInput v-model:value="openapiModel" :placeholder="'default'" style="width: 240px" />
               <template #suffix>
                 <NText depth="3" style="font-size: 12px">{{ $t('options.modelNameHint') }}</NText>
               </template>
             </NFormItem>
-            
+
             <NFormItem :label="$t('options.timeout')">
-              <NInput 
-                v-model:value="openapiTimeout" 
-                type="number" 
-                :placeholder="'60000'"
-                style="width: 200px"
-              />
+              <NInput v-model:value="openapiTimeout" type="number" :placeholder="'60000'" style="width: 200px" />
               <template #suffix>
                 <NText depth="3" style="font-size: 12px">ms</NText>
               </template>
@@ -193,49 +129,30 @@
                 <NSpace vertical>
                   <!-- 认证类型 -->
                   <NFormItem :label="$t('options.authType')">
-                    <NSelect
-                      v-model:value="openapiAuthType"
-                      :options="authTypeOptions"
-                      style="width: 200px"
-                    />
+                    <NSelect v-model:value="openapiAuthType" :options="authTypeOptions" style="width: 200px" />
                   </NFormItem>
 
                   <!-- 认证Header名称 -->
                   <NFormItem v-if="openapiAuthType !== 'none'" :label="$t('options.authHeaderName')">
-                    <NInput 
-                      v-model:value="openapiAuthHeaderName" 
-                      :placeholder="'Authorization'"
-                      style="width: 200px"
-                    />
+                    <NInput v-model:value="openapiAuthHeaderName" :placeholder="'Authorization'" style="width: 200px" />
                   </NFormItem>
 
                   <!-- 请求方法 -->
                   <NFormItem :label="$t('options.requestMethod')">
-                    <NSelect
-                      v-model:value="openapiRequestMethod"
-                      :options="requestMethodOptions"
-                      style="width: 200px"
-                    />
+                    <NSelect v-model:value="openapiRequestMethod" :options="requestMethodOptions"
+                      style="width: 200px" />
                   </NFormItem>
 
                   <!-- 内容类型 -->
                   <NFormItem :label="$t('options.contentType')">
-                    <NInput 
-                      v-model:value="openapiContentType" 
-                      :placeholder="'application/json'"
-                      style="width: 200px"
-                    />
+                    <NInput v-model:value="openapiContentType" :placeholder="'application/json'" style="width: 200px" />
                   </NFormItem>
 
                   <!-- 自定义Headers -->
                   <NFormItem :label="$t('options.customHeaders')">
-                    <NInput 
-                      v-model:value="openapiCustomHeadersText" 
-                      type="textarea" 
-                      :placeholder="$t('options.customHeadersPlaceholder')"
-                      :autosize="{ minRows: 3, maxRows: 6 }"
-                      style="width: 400px"
-                    />
+                    <NInput v-model:value="openapiCustomHeadersText" type="textarea"
+                      :placeholder="$t('options.customHeadersPlaceholder')" :autosize="{ minRows: 3, maxRows: 6 }"
+                      style="width: 400px" />
                     <template #suffix>
                       <NText depth="3" style="font-size: 12px">{{ $t('options.jsonFormat') }}</NText>
                     </template>
@@ -243,13 +160,9 @@
 
                   <!-- 自定义请求参数 -->
                   <NFormItem :label="$t('options.customParams')">
-                    <NInput 
-                      v-model:value="openapiCustomParamsText" 
-                      type="textarea" 
-                      :placeholder="$t('options.customParamsPlaceholder')"
-                      :autosize="{ minRows: 3, maxRows: 6 }"
-                      style="width: 400px"
-                    />
+                    <NInput v-model:value="openapiCustomParamsText" type="textarea"
+                      :placeholder="$t('options.customParamsPlaceholder')" :autosize="{ minRows: 3, maxRows: 6 }"
+                      style="width: 400px" />
                     <template #suffix>
                       <NText depth="3" style="font-size: 12px">{{ $t('options.jsonFormat') }}</NText>
                     </template>
@@ -311,7 +224,7 @@ import {
 } from 'naive-ui';
 import { DEFAUTL_PROMPT } from '../constants';
 import type { Settings, Locale } from '../types';
-import { listOllamaModels, isOllamaModelAvailable } from '../task/agent/ollama';
+import { listOllamaModels, isOllamaModelAvailable } from '../task/agent/agent';
 import { supportedLocales } from '../i18n';
 
 const message = useMessage();
