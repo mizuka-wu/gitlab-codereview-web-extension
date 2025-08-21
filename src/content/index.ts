@@ -180,6 +180,13 @@ function isCodeReviewPage(): boolean {
   return isMergeRequestPage();
 }
 
+/**
+ * 获取当前的projectId
+ */
+function getProjectId(): string | null {
+  return document.body.getAttribute("data-project-id");
+}
+
 // ====================== GitLab API 代理部分 ======================
 
 // 定义请求类型
@@ -287,7 +294,7 @@ async function handleGitLabApiRequest(
   method: string = "GET",
   data?: any
 ): Promise<ApiResponse> {
-  const baseUrl = `${host}/api/v4/projects/${projectPath}/merge_requests/${mrIId}`;
+  const baseUrl = `${host}/api/v4/projects/${getProjectId() || projectPath}/merge_requests/${mrIId}`;
   const url = `${baseUrl}${endpoint}`;
 
   return handleApiRequest({
@@ -475,7 +482,7 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
           // 构建 discussions API URL
           url = `${mrUrlObj.protocol}//${
             mrUrlObj.host
-          }/api/v4/projects/${encodeURIComponent(
+          }/api/v4/projects/${getProjectId() || encodeURIComponent(
             projectPath.join("/").replace(/^\//, "")
           )}/merge_requests/${message.mrIId}/discussions`;
         } else {
@@ -484,7 +491,7 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
             /\/-\/merge_requests\/\d+(\/diffs)?$/,
             ""
           );
-          url = `${projectRoot}/api/v4/projects/${encodeURIComponent(
+          url = `${projectRoot}/api/v4/projects/${getProjectId() || encodeURIComponent(
             message.projectPath
           )}/merge_requests/${message.mrIId}/discussions`;
         }
