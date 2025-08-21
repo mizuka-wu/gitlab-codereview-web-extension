@@ -10,38 +10,83 @@ let gitlabApiInfo: {
   ref: any;
 } | null = null;
 
+// 数据迁移：从 sync 存储迁移到 local 存储
+async function migrateStorageData() {
+  try {
+    // 检查是否已经迁移过
+    const migrationCheck = await browser.storage.local.get('_migrated_to_local');
+    if (migrationCheck._migrated_to_local) {
+      console.log('数据已迁移到本地存储');
+      return;
+    }
+
+    // 尝试从 sync 存储读取现有数据
+    const syncData = await browser.storage.sync.get(['settings', 'gitlabDetection']);
+    
+    if (syncData.settings || syncData.gitlabDetection) {
+      console.log('发现 sync 存储中的数据，开始迁移到 local 存储');
+      
+      // 迁移到 local 存储
+      await browser.storage.local.set(syncData);
+      
+      // 标记已迁移
+      await browser.storage.local.set({ _migrated_to_local: true });
+      
+      console.log('数据迁移完成');
+    } else {
+      // 没有旧数据，直接标记已迁移
+      await browser.storage.local.set({ _migrated_to_local: true });
+      console.log('没有发现需要迁移的数据');
+    }
+  } catch (error) {
+    console.error('数据迁移失败:', error);
+  }
+}
+
 // 扩展安装或更新时的处理
-browser.runtime.onInstalled.addListener((details) => {
+browser.runtime.onInstalled.addListener(async (details) => {
   console.log("扩展已安装或更新:", details);
 
-  // 初始化存储
-  const defaultGitlabDetction: GitLabDetection = {
-    isGitLab: false,
-    isReviewPage: false,
-    url: "",
-    title: "",
-    timestamp: Date.now(),
-  };
-  browser.storage.local.set({
-    gitlabDetection: defaultGitlabDetction,
-  });
+  // 首先尝试数据迁移
+  await migrateStorageData();
 
-  // 初始化设置
-  const defaultSettings: Settings = {
-    detctor: {
-      isEnable: true,
-    },
-    aiAgent: {
-      current: "ollama",
-      aiAgentConfig: {},
-    },
-    prompt: {
-      template: DEFAUTL_PROMPT,
-    },
-  };
-  browser.storage.sync.set({
-    settings: defaultSettings,
-  });
+  // 检查是否已有设置，如果没有则初始化默认设置
+  const existingData = await browser.storage.local.get(['settings', 'gitlabDetection']);
+  
+  if (!existingData.gitlabDetection) {
+    // 初始化GitLab检测状态
+    const defaultGitlabDetction: GitLabDetection = {
+      isGitLab: false,
+      isReviewPage: false,
+      url: "",
+      title: "",
+      timestamp: Date.now(),
+    };
+    await browser.storage.local.set({
+      gitlabDetection: defaultGitlabDetction,
+    });
+  }
+
+  if (!existingData.settings) {
+    // 初始化默认设置
+    const defaultSettings: Settings = {
+      detctor: {
+        isEnable: true,
+      },
+      aiAgent: {
+        current: "ollama",
+        aiAgentConfig: {},
+      },
+      prompt: {
+        template: DEFAUTL_PROMPT,
+      },
+    };
+    await browser.storage.local.set({
+      settings: defaultSettings,
+    });
+  }
+
+  console.log('扩展初始化完成');
 });
 
 // 监听来自内容脚本的消息

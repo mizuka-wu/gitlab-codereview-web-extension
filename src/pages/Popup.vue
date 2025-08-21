@@ -151,7 +151,7 @@ onBeforeUnmount(() => {
 const version = ref('');
 async function syncLocaleFromSettings() {
   try {
-    const data = await browser.storage.sync.get('settings');
+    const data = await browser.storage.local.get('settings');
     const locale = data?.settings?.locale;
     if (locale) i18nLocale.value = locale as any;
   } catch {}
