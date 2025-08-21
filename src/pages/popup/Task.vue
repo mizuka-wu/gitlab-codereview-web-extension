@@ -119,32 +119,117 @@ function guessLanguage(filePath: string): string {
     }
 }
 
-// 预检：检查是否配置并安装可用的 Ollama 模型
+// 预检：检查是否配置并安装可用的 AI 模型
 async function precheckModel(): Promise<boolean> {
     try {
         showGoToSettings.value = false;
         errorMessage.value = '';
 
-        const data = await browser.storage.sync.get('settings');
+        const data = await browser.storage.local.get('settings');
         const settings: any = data?.settings ?? {};
-        const endpoint: string = settings?.aiAgent?.aiAgentConfig?.ollama?.endpoint ?? DEFAULT_OLLAMA_END_POINT;
-        const model: string = settings?.aiAgent?.aiAgentConfig?.ollama?.model ?? '';
+        const currentAgent = settings?.aiAgent?.current ?? 'ollama';
 
-        if (!model) {
-            if (task.value) task.value.status = 'failed';
-            showGoToSettings.value = true;
-            errorMessage.value = t('popup.task.noModelConfigured');
-            debugInfo.value = JSON.stringify({ endpoint, model }, null, 2);
-            return false;
-        }
+        // 根据不同的AI代理类型进行不同的检查
+        switch (currentAgent) {
+            case 'ollama': {
+                const endpoint: string = settings?.aiAgent?.aiAgentConfig?.ollama?.endpoint ?? DEFAULT_OLLAMA_END_POINT;
+                const model: string = settings?.aiAgent?.aiAgentConfig?.ollama?.model ?? '';
 
-        const available = await isOllamaModelAvailable(endpoint, model).catch(() => false);
-        if (!available) {
-            if (task.value) task.value.status = 'failed';
-            showGoToSettings.value = true;
-            errorMessage.value = t('popup.task.modelUnavailable', { model });
-            debugInfo.value = JSON.stringify({ endpoint, model, available }, null, 2);
-            return false;
+                if (!model) {
+                    if (task.value) task.value.status = 'failed';
+                    showGoToSettings.value = true;
+                    errorMessage.value = t('popup.task.noModelConfigured');
+                    debugInfo.value = JSON.stringify({ endpoint, model }, null, 2);
+                    return false;
+                }
+
+                const available = await isOllamaModelAvailable(endpoint, model).catch(() => false);
+                if (!available) {
+                    if (task.value) task.value.status = 'failed';
+                    showGoToSettings.value = true;
+                    errorMessage.value = t('popup.task.modelUnavailable', { model });
+                    debugInfo.value = JSON.stringify({ endpoint, model, available }, null, 2);
+                    return false;
+                }
+                break;
+            }
+
+            case 'openai': {
+                const config = settings?.aiAgent?.aiAgentConfig?.openai ?? {};
+                const apiKey = config.apiKey;
+                const model = config.model;
+
+                if (!apiKey) {
+                    if (task.value) task.value.status = 'failed';
+                    showGoToSettings.value = true;
+                    errorMessage.value = '未配置 OpenAI API Key，请前往设置页配置';
+                    debugInfo.value = JSON.stringify({ model, hasApiKey: !!apiKey }, null, 2);
+                    return false;
+                }
+
+                if (!model) {
+                    if (task.value) task.value.status = 'failed';
+                    showGoToSettings.value = true;
+                    errorMessage.value = t('popup.task.noOpenAIModelConfigured');
+                    debugInfo.value = JSON.stringify({ model, hasApiKey: !!apiKey }, null, 2);
+                    return false;
+                }
+                break;
+            }
+
+            case 'claude': {
+                const config = settings?.aiAgent?.aiAgentConfig?.claude ?? {};
+                const apiKey = config.apiKey;
+                const model = config.model;
+
+                if (!apiKey) {
+                    if (task.value) task.value.status = 'failed';
+                    showGoToSettings.value = true;
+                    errorMessage.value = '未配置 Claude API Key，请前往设置页配置';
+                    debugInfo.value = JSON.stringify({ model, hasApiKey: !!apiKey }, null, 2);
+                    return false;
+                }
+
+                if (!model) {
+                    if (task.value) task.value.status = 'failed';
+                    showGoToSettings.value = true;
+                    errorMessage.value = t('popup.task.noClaudeModelConfigured');
+                    debugInfo.value = JSON.stringify({ model, hasApiKey: !!apiKey }, null, 2);
+                    return false;
+                }
+                break;
+            }
+
+            case 'openapi': {
+                const config = settings?.aiAgent?.aiAgentConfig?.openapi ?? {};
+                const baseUrl = config.baseUrl;
+                const model = config.model;
+
+                if (!baseUrl) {
+                    if (task.value) task.value.status = 'failed';
+                    showGoToSettings.value = true;
+                    errorMessage.value = '未配置 OpenAPI 兼容服务地址，请前往设置页配置';
+                    debugInfo.value = JSON.stringify({ baseUrl, model }, null, 2);
+                    return false;
+                }
+
+                if (!model) {
+                    if (task.value) task.value.status = 'failed';
+                    showGoToSettings.value = true;
+                    errorMessage.value = t('popup.task.noOpenAPIModelConfigured');
+                    debugInfo.value = JSON.stringify({ baseUrl, model }, null, 2);
+                    return false;
+                }
+                break;
+            }
+
+            default: {
+                if (task.value) task.value.status = 'failed';
+                showGoToSettings.value = true;
+                errorMessage.value = `不支持的AI代理类型: ${currentAgent}`;
+                debugInfo.value = JSON.stringify({ currentAgent }, null, 2);
+                return false;
+            }
         }
 
         return true;

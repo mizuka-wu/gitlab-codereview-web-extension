@@ -59,8 +59,8 @@ let currentSettings: Settings = { ...defaultSettings };
 // 加载设置
 async function loadSettings(): Promise<Settings> {
   try {
-    // 从 sync 读取，保持与 Options 页保存位置一致
-    const data = await browser.storage.sync.get("settings");
+    // 从 local 读取，保持与 Options 页保存位置一致
+    const data = await browser.storage.local.get("settings");
     return data.settings?.detctor || { ...defaultSettings };
   } catch (error) {
     console.error("加载设置时出错:", error);
