@@ -9,6 +9,8 @@ on:
 jobs:
   build-and-package:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 关键：添加这个权限设置
 
     steps:
       - name: Checkout repository
