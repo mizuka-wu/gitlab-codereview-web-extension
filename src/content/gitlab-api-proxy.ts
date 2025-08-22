@@ -176,6 +176,10 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
   
   // 提交 MR 评论
   if (message.action === 'postMrComment') {
+    // 当上游传入 useRawPosition=true 时，交由 src/content/index.ts 处理，避免与 notes 回退实现冲突
+    if (message.useRawPosition) {
+      return false;
+    }
     // 尝试使用 notes 接口替代 discussions 接口
     // 根据您提供的 curl 命令，notes 接口可以正常工作
     const csrfToken = getCSRFToken();

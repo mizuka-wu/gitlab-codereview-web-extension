@@ -501,8 +501,9 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
 
         console.log("构建的 API URL:", url);
 
-        // 构建符合成功 curl 命令的数据结构
+        // 构建符合 discussions API 的数据结构
         const originalData = message.data;
+        const useRawPosition = !!message.useRawPosition;
 
         // 确保评论内容不为空
         const noteContent = originalData.note || originalData.body || "";
@@ -531,78 +532,76 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
           return { success: true, data: { skipped: true, reason: "no_suggestion", details: { ...noSugHit, rawOriginal: noteContent } } };
         }
 
-        // 确保 position 对象完整
+        // 解析 position
         let position = originalData.position || {};
         if (typeof position === "string") {
           try {
             position = JSON.parse(position);
           } catch (e) {
             console.error("解析 position 字符串失败:", e);
+            position = {};
           }
         }
 
-        // 确保 position 对象包含必要字段
-        position = {
-          base_sha: position.base_sha || mrData.diff_refs?.base_sha || null,
-          start_sha: position.start_sha || mrData.diff_refs?.start_sha || null,
-          head_sha: diffHeadSha,
-          old_path: position.old_path || position.new_path,
-          new_path: position.new_path,
-          position_type: position.position_type || "text",
-          old_line: position.old_line || null,
-          new_line: position.new_line,
-          ...position,
-        };
-
-        // 确保必要的 SHA 值不为空
-        if (!position.base_sha || !position.start_sha || !position.head_sha) {
-          console.warn("缺少必要的 SHA 值，使用备用值");
-          position.base_sha = position.base_sha || diffHeadSha;
-          position.start_sha = position.start_sha || diffHeadSha;
-          position.head_sha = position.head_sha || diffHeadSha;
-        }
-
-        // 确保 line_range 存在且完整
-        if (!position.line_range || typeof position.line_range !== "object") {
-          position.line_range = {
-            start: {
-              type: position.new_line ? "new" : "old",
-              old_line: position.old_line || null,
-              new_line: position.new_line || null,
-            },
-            end: {
-              type: position.new_line ? "new" : "old",
-              old_line: position.old_line || null,
-              new_line: position.new_line || null,
-            },
+        // 构建 positionPayload
+        let positionPayload: any;
+        if (useRawPosition) {
+          // 直接使用上游提供的 position，仅在缺失时用 diff_refs 补齐 SHA
+          positionPayload = {
+            position_type: position.position_type || "text",
+            base_sha: position.base_sha ?? mrData.diff_refs?.base_sha ?? null,
+            start_sha: position.start_sha ?? mrData.diff_refs?.start_sha ?? null,
+            head_sha: position.head_sha ?? diffHeadSha ?? mrData.diff_refs?.head_sha ?? null,
+            old_path: position.old_path,
+            new_path: position.new_path,
+            new_line: position.new_line,
+            old_line: position.old_line,
+            line_range: position.line_range, // 如果未提供则不强制构造
           };
+        } else {
+          // 维持原有自动推断逻辑（向后兼容）
+          const diffRefs = mrData.diff_refs || {};
+          const ensured = {
+            base_sha: position.base_sha || diffRefs.base_sha || null,
+            start_sha: position.start_sha || diffRefs.start_sha || null,
+            head_sha: diffHeadSha || diffRefs.head_sha || null,
+            old_path: position.old_path || position.new_path,
+            new_path: position.new_path,
+            position_type: position.position_type || "text",
+            old_line: position.old_line || null,
+            new_line: position.new_line,
+            ...position,
+          } as any;
+
+          if (!ensured.line_range || typeof ensured.line_range !== "object") {
+            ensured.line_range = {
+              start: {
+                type: ensured.new_line ? "new" : "old",
+                old_line: ensured.old_line || null,
+                new_line: ensured.new_line || null,
+              },
+              end: {
+                type: ensured.new_line ? "new" : "old",
+                old_line: ensured.old_line || null,
+                new_line: ensured.new_line || null,
+              },
+            };
+          }
+
+          positionPayload = {
+            base_sha: diffRefs.base_sha,
+            start_sha: diffRefs.start_sha,
+            head_sha: diffRefs.head_sha,
+            position_type: "text",
+            old_path: ensured.old_path || ensured.new_path,
+            new_path: ensured.new_path || ensured.old_path,
+            line_range: ensured.line_range,
+          } as any;
+          if (ensured.new_line != null) positionPayload.new_line = ensured.new_line;
+          else if (ensured.old_line != null) positionPayload.old_line = ensured.old_line;
         }
 
-        // 使用 discussions API 格式构建请求数据（使用 any 以便后续清理字段）
-        const diffRefs = mrData.diff_refs || {};
-        let positionPayload: any = {
-          base_sha: diffRefs.base_sha,
-          start_sha: diffRefs.start_sha,
-          head_sha: diffRefs.head_sha,
-          position_type: "text",
-          // 按文档要求同时提供 old_path 和 new_path
-          old_path: position.old_path || position.new_path,
-          new_path: position.new_path || position.old_path,
-          // 传递 line_range（若提供），以支持多行范围
-          line_range: position.line_range,
-        };
-
-        // 行号只提供一侧：优先 new_line，否则 old_line
-        if (position.new_line != null) {
-          positionPayload.new_line = position.new_line;
-        } else if (position.old_line != null) {
-          positionPayload.old_line = position.old_line;
-        }
-
-        let discussionsData: any = {
-          body: noteContent,
-          position: positionPayload,
-        };
+        let discussionsData: any = { body: noteContent, position: positionPayload };
 
         // 清理 position 中的 null/undefined 字段，避免服务端解析异常
         const sanitize = (obj: Record<string, any>) => {

@@ -200,13 +200,13 @@ export default class GitlabProxyManager {
    * @param options 评论选项
    * @returns 评论结果
    */
-  async postComment({ newPath, newLine, oldPath, oldLine, body, ref }: {
+  async postComment({ newPath, newLine, oldPath, oldLine, body, ref, lineRange }: {
     newPath?: string;
     newLine?: number;
     oldPath?: string;
     oldLine?: number;
     body: string;
-    ref?: string;
+    ref?: { headSha?: string; baseSha?: string; startSha?: string };
     // 可选的多行范围
     lineRange?: {
       start: { type: 'new' | 'old'; new_line?: number | null; old_line?: number | null };
@@ -215,134 +215,36 @@ export default class GitlabProxyManager {
   }) {
     const sanitizedBody = stripThinkTags(body);
     console.log('提交评论参数:', { newPath, newLine, oldPath, oldLine, body: sanitizedBody, ref });
-    
-    // 获取当前页面上的 MR 信息
-    let diffHeadSha = '';
-    let lineCode = '';
-    
-    try {
-      // 首先尝试获取合并请求信息以获取最准确的 diffHeadSha
-      try {
-        const changesData = await this.sendMessage('getMrChanges');
-        if (changesData && changesData.diff_refs) {
-          diffHeadSha = changesData.diff_refs.head_sha || '';
-          console.log('从 changes API 获取到的 diffHeadSha:', diffHeadSha);
-        }
-      } catch (changesError) {
-        console.warn('获取 changes API 失败，尝试其他方式获取 diffHeadSha:', changesError);
-      }
-      
-      // 如果 API 获取失败，尝试从页面 DOM 获取
-      if (!diffHeadSha) {
-        // 尝试多种选择器以提高兼容性
-        const selectors = [
-          '[data-commit-sha]',
-          '[data-merge-request-diff-head-sha]',
-          '[data-diff-head-sha]',
-          '.merge-request-diff-head-sha',
-          '.js-merge-request-diff-head-sha'
-        ];
-        
-        for (const selector of selectors) {
-          const element = document.querySelector(selector);
-          if (element) {
-            const sha = element.getAttribute('data-commit-sha') || 
-                      element.getAttribute('data-merge-request-diff-head-sha') || 
-                      element.getAttribute('data-diff-head-sha') || 
-                      element.textContent?.trim();
-            
-            if (sha) {
-              diffHeadSha = sha;
-              console.log(`从选择器 ${selector} 获取到的 diffHeadSha:`, diffHeadSha);
-              break;
-            }
-          }
-        }
-      }
-      
-      // 如果有行号，尝试构建或获取 lineCode
-      if (newPath && newLine) {
-        // 首先尝试从页面元素获取
-        try {
-          // 构建可能的选择器
-          const lineSelectors = [
-            `[data-path="${newPath}"] [data-line-number="${newLine}"] [data-line-code]`,
-            `[data-file-path="${newPath}"] [data-line-number="${newLine}"] [data-line-code]`,
-            `[data-line-number="${newLine}"][data-line-code]`
-          ];
-          
-          for (const selector of lineSelectors) {
-            const lineElement = document.querySelector(selector);
-            if (lineElement) {
-              const code = lineElement.getAttribute('data-line-code');
-              if (code) {
-                lineCode = code;
-                console.log(`从选择器 ${selector} 获取到的 lineCode:`, lineCode);
-                break;
-              }
-            }
-          }
-        } catch (domError) {
-          console.warn('从 DOM 获取 lineCode 失败:', domError);
-        }
-        
-        // 如果无法从 DOM 获取，则构建一个
-        if (!lineCode) {
-          // 尝试获取文件的 blob id
-          let fileId = '';
-          try {
-            const fileElement = document.querySelector(`[data-path="${newPath}"]`) || 
-                               document.querySelector(`[data-file-path="${newPath}"]`);
-            if (fileElement) {
-              fileId = fileElement.getAttribute('data-blob-id') || '';
-            }
-          } catch (error) {
-            console.warn('获取文件 blob id 失败:', error);
-          }
-          
-          // 如果没有 blob id，使用路径哈希
-          if (!fileId) {
-            fileId = this.hashCode(newPath);
-          }
-          
-          // 不再构造或上送自定义 lineCode，避免服务端校验失败
-          console.log('未获取到原始 lineCode，跳过自定义构造');
-        }
-      }
-    } catch (error) {
-      console.error('获取 MR 信息失败:', error);
-    }
 
-    // 构建位置信息，根据用户提供的成功 curl 命令和 GitLab API 文档
-    const position = {
-      base_sha: null,
-      start_sha: null,
-      head_sha: diffHeadSha,
-      // 仅在存在时按需设置路径与行号，避免填充无效字段
-      old_path: oldPath || undefined,
-      new_path: newPath || undefined,
+    // 仅从 API 获取 diff refs，避免 DOM 探测引入误差
+    const { headSha, baseSha, startSha } = await this.getDiffRefsSafe();
+
+    // 构建最小且准确的 discussions position（对齐参考实现）
+    const position: Record<string, any> = {
       position_type: 'text',
-      old_line: typeof oldLine === 'number' ? oldLine : undefined,
+      base_sha: ref?.baseSha ?? baseSha ?? null,
+      head_sha: ref?.headSha ?? headSha ?? null,
+      start_sha: ref?.startSha ?? startSha ?? null,
+      new_path: newPath,
       new_line: typeof newLine === 'number' ? newLine : undefined,
-      ignore_whitespace_change: false
-    } as Record<string, any>;
+      old_path: oldPath,
+      old_line: typeof oldLine === 'number' ? oldLine : undefined,
+    };
 
-    // 追加 line_range（若提供）
-    if (arguments[0] && (arguments[0] as any).lineRange) {
-      position.line_range = (arguments[0] as any).lineRange;
+    if (lineRange) {
+      position.line_range = lineRange;
     }
 
-    // 根据成功的 curl 命令简化数据结构
     const data = {
-      note: sanitizedBody, // 使用清洗后的 body 作为 note 字段的值
-      position: JSON.stringify(position)
+      body: sanitizedBody,
+      position,
     };
-    
+
     // 传递原始 URL 信息，以便 content script 构建正确的 URL
     const mrUrl = this.mrUrl;
 
     console.log('提交评论数据:', data);
-    return this.sendMessage('postMrComment', { data, mrUrl });
+    return this.sendMessage('postMrComment', { data, mrUrl, useRawPosition: true });
   }
   
   /**
@@ -392,6 +294,10 @@ export default class GitlabProxyManager {
     // 尝试从消息中解析范围（显式行号或代码片段）
     const derivedRange = await this.deriveLineRangeFromMessage({ change, message });
 
+    // 获取 diff refs 并构造 ref 对象，按参考实现传递
+    const { headSha, baseSha, startSha } = await this.getDiffRefsSafe();
+    const refObj = { headSha, baseSha, startSha };
+
     // 根据变更类型决定如何提交评论
     if (change.new_file) {
       // 新文件：使用首个新增行（若找不到则回退到 1）
@@ -406,7 +312,7 @@ export default class GitlabProxyManager {
             }
           : undefined,
         body: sanitizedMessage,
-        ref: ref || this.ref || undefined,
+        ref: refObj,
       });
     } else if (change.deleted_file) {
       // 删除的文件：使用首个删除行（若找不到则回退到 1）
@@ -421,7 +327,7 @@ export default class GitlabProxyManager {
             }
           : undefined,
         body: sanitizedMessage,
-        ref: ref || this.ref || undefined,
+        ref: refObj,
       });
     } else if (change.renamed_file) {
       // 重命名：按新增侧
@@ -437,7 +343,7 @@ export default class GitlabProxyManager {
             }
           : undefined,
         body: sanitizedMessage,
-        ref: ref || this.ref || undefined,
+        ref: refObj,
       });
     } else {
       // 修改文件：优先使用新增侧；若无新增则使用删除侧
@@ -454,7 +360,7 @@ export default class GitlabProxyManager {
               }
             : undefined,
           body: sanitizedMessage,
-          ref: ref || this.ref || undefined,
+          ref: refObj,
         });
       }
       if (firstRemovedOldLine !== undefined) {
@@ -469,7 +375,7 @@ export default class GitlabProxyManager {
               }
             : undefined,
           body: sanitizedMessage,
-          ref: ref || this.ref || undefined,
+          ref: refObj,
         });
       }
       // 回退：无法解析时选择文件首行（新增侧）
@@ -478,7 +384,7 @@ export default class GitlabProxyManager {
         oldPath: change.old_path,
         newLine: 1,
         body: sanitizedMessage,
-        ref: ref || this.ref || undefined,
+        ref: refObj,
       });
     }
   }
