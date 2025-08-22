@@ -28,7 +28,7 @@ async function loadSettings() {
 function renderTemplate(tpl: string, values: Record<string, string>) {
   return tpl
     .replace(/\{\{\s*context\s*\}\}/g, values.context ?? "")
-    .replace(/\{\s*language\s*\}\}/g, values.language ?? "")
+    .replace(/\{\{\s*language\s*\}\}/g, values.language ?? "")
     .replace(/\{\{\s*diff\s*\}\}/g, values.diff ?? "");
 }
 

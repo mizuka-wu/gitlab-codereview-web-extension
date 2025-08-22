@@ -157,18 +157,42 @@ export default class GitlabProxyManager {
   async getChanges() {
     try {
       const data = await this.sendMessage('getMrChanges');
-      
-      // 保存引用，用于后续操作
-      this.ref = data.changes_count > 0 ? data.changes[0].new_path : undefined;
-      
+
+      // 提取 diff_refs 信息
+      const diffRefs = data?.diff_refs || {};
+      const headSha = diffRefs.head_sha || undefined;
+      const baseSha = diffRefs.base_sha || undefined;
+      const startSha = diffRefs.start_sha || undefined;
+
+      // 保存引用（兼容旧逻辑，优先使用 headSha）
+      this.ref = headSha || (data.changes_count > 0 ? data.changes[0].new_path : undefined);
+
       return {
         changes: data.changes || [],
-        ref: this.ref
+        ref: this.ref,
+        headSha,
+        baseSha,
+        startSha,
       };
     } catch (error) {
       console.error('获取变更失败:', error);
       throw error;
     }
+  }
+
+  /**
+   * 获取指定提交下某个文件的原始内容（raw）
+   */
+  async getRawFileContent(params: { filePath: string; sha: string }) {
+    const projectPathDecoded = decodeURIComponent(this.projectPath);
+    const url = `${this.host}/${projectPathDecoded}/-/raw/${params.sha}/${encodeURI(params.filePath)}`;
+    const res = await this.sendMessage('apiRequest', {
+      request: {
+        method: 'GET',
+        url,
+      },
+    });
+    return typeof res === 'string' ? res : (res?.toString?.() ?? '');
   }
 
   /**

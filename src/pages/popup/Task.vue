@@ -336,7 +336,7 @@ async function runAnalysisTask() {
         // 获取变更
         progress.value = 10;
         progressText.value = t('popup.task.fetchingChanges');
-        const { changes, ref } = await gitlabManager.getChanges();
+        const { changes, ref, headSha, baseSha } = await gitlabManager.getChanges();
 
         if (!changes || changes.length === 0) {
             throw new Error(t('popup.task.noChangesFound'));
@@ -352,11 +352,31 @@ async function runAnalysisTask() {
             progress.value = 30 + Math.floor((i / changes.length) * 60);
             progressText.value = t('popup.task.analyzingItem', { index: i + 1, total: changes.length, file: change.new_path });
 
+            // 尝试获取当前文件上下文（原始内容）
+            let context = '';
+            try {
+                const isDeleted = !!change.deleted_file;
+                const shaToUse = isDeleted ? baseSha : headSha;
+                const pathToUse = isDeleted
+                    ? (change.old_path || change.new_path)
+                    : (change.new_path || change.old_path);
+                if (shaToUse && pathToUse) {
+                    const raw = await gitlabManager.getRawFileContent({ filePath: pathToUse, sha: shaToUse });
+                    context = (raw || '').toString();
+                    // 控制上下文长度，避免提示过长
+                    if (context.length > 8000) {
+                        context = context.slice(0, 8000);
+                    }
+                }
+            } catch (e) {
+                console.warn('获取文件上下文失败:', e);
+            }
+
             // 使用真实 AI 调用生成代码审查内容
             const message = await generateReview({
                 diff: change.diff,
                 language: guessLanguage(change.new_path || change.old_path || ''),
-                context: ''
+                context
             });
 
             // 若 AI 表示“无建议”，跳过创建讨论
