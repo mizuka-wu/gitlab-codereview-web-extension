@@ -1,6 +1,6 @@
 import browser from "webextension-polyfill";
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
-import { stripThinkTags, isNoSuggestionMessage } from "../utils/review";
+import { stripThinkTags, getNoSuggestionMatch } from "../utils/review";
 import { type DetectorSettings as Settings } from "../types/index.d";
 
 /**
@@ -516,11 +516,19 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
           };
         }
 
-        // 若为“无建议/通过”的简短回复，则跳过创建讨论
+        // 若为“无建议/通过”的简短回复，则跳过创建讨论，并输出命中详情
         const sanitized = stripThinkTags(noteContent);
-        if (isNoSuggestionMessage(sanitized)) {
-          console.log("检测到无建议回复，跳过创建讨论");
-          return { success: true, data: { skipped: true, reason: "no_suggestion" } };
+        const noSugHit = getNoSuggestionMatch(sanitized);
+        if (noSugHit) {
+          console.log("检测到无建议回复，跳过创建讨论", {
+            patternIndex: noSugHit.index,
+            pattern: noSugHit.pattern,
+            matched: noSugHit.matched,
+            normalized: noSugHit.normalized,
+            original: noSugHit.original,
+            rawOriginal: noteContent,
+          });
+          return { success: true, data: { skipped: true, reason: "no_suggestion", details: { ...noSugHit, rawOriginal: noteContent } } };
         }
 
         // 确保 position 对象完整
@@ -580,6 +588,8 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
           // 按文档要求同时提供 old_path 和 new_path
           old_path: position.old_path || position.new_path,
           new_path: position.new_path || position.old_path,
+          // 传递 line_range（若提供），以支持多行范围
+          line_range: position.line_range,
         };
 
         // 行号只提供一侧：优先 new_line，否则 old_line

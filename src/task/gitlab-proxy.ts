@@ -1,5 +1,5 @@
 import browser from "webextension-polyfill";
-import { stripThinkTags, isNoSuggestionMessage } from "../utils/review";
+import { stripThinkTags, isNoSuggestionMessage, getNoSuggestionMatch } from "../utils/review";
 
 /**
  * GitLab 管理器代理类
@@ -207,6 +207,11 @@ export default class GitlabProxyManager {
     oldLine?: number;
     body: string;
     ref?: string;
+    // 可选的多行范围
+    lineRange?: {
+      start: { type: 'new' | 'old'; new_line?: number | null; old_line?: number | null };
+      end: { type: 'new' | 'old'; new_line?: number | null; old_line?: number | null };
+    };
   }) {
     const sanitizedBody = stripThinkTags(body);
     console.log('提交评论参数:', { newPath, newLine, oldPath, oldLine, body: sanitizedBody, ref });
@@ -322,6 +327,11 @@ export default class GitlabProxyManager {
       ignore_whitespace_change: false
     } as Record<string, any>;
 
+    // 追加 line_range（若提供）
+    if (arguments[0] && (arguments[0] as any).lineRange) {
+      position.line_range = (arguments[0] as any).lineRange;
+    }
+
     // 根据成功的 curl 命令简化数据结构
     const data = {
       note: sanitizedBody, // 使用清洗后的 body 作为 note 字段的值
@@ -368,17 +378,33 @@ export default class GitlabProxyManager {
       throw new Error('评论内容不能为空');
     }
     // 若 AI 表示“无建议”，跳过创建讨论
-    if (isNoSuggestionMessage(sanitizedMessage)) {
-      console.log('AI 返回无建议，跳过创建讨论');
-      return { skipped: true, reason: 'no_suggestion' };
+    const noSugHit = getNoSuggestionMatch(sanitizedMessage);
+    if (noSugHit) {
+      console.log('AI 返回无建议，跳过创建讨论', {
+        patternIndex: noSugHit.index,
+        pattern: noSugHit.pattern,
+        matched: noSugHit.matched,
+        normalized: noSugHit.normalized,
+        original: noSugHit.original,
+      });
+      return { skipped: true, reason: 'no_suggestion', details: noSugHit } as any;
     }
+    // 尝试从消息中解析范围（显式行号或代码片段）
+    const derivedRange = await this.deriveLineRangeFromMessage({ change, message });
+
     // 根据变更类型决定如何提交评论
     if (change.new_file) {
       // 新文件：使用首个新增行（若找不到则回退到 1）
       const { firstAddedNewLine } = this.parseDiffFirstPositions(change.diff || '');
       return this.postComment({
         newPath: change.new_path,
-        newLine: firstAddedNewLine ?? 1,
+        newLine: derivedRange?.side === 'new' ? (derivedRange.start ?? (firstAddedNewLine ?? 1)) : (firstAddedNewLine ?? 1),
+        lineRange: derivedRange?.side === 'new' && derivedRange.end && derivedRange.start
+          ? {
+              start: { type: 'new', new_line: derivedRange.start, old_line: null },
+              end: { type: 'new', new_line: derivedRange.end, old_line: null },
+            }
+          : undefined,
         body: sanitizedMessage,
         ref: ref || this.ref || undefined,
       });
@@ -387,7 +413,13 @@ export default class GitlabProxyManager {
       const { firstRemovedOldLine } = this.parseDiffFirstPositions(change.diff || '');
       return this.postComment({
         oldPath: change.old_path,
-        oldLine: firstRemovedOldLine ?? 1,
+        oldLine: derivedRange?.side === 'old' ? (derivedRange.start ?? (firstRemovedOldLine ?? 1)) : (firstRemovedOldLine ?? 1),
+        lineRange: derivedRange?.side === 'old' && derivedRange.end && derivedRange.start
+          ? {
+              start: { type: 'old', new_line: null, old_line: derivedRange.start },
+              end: { type: 'old', new_line: null, old_line: derivedRange.end },
+            }
+          : undefined,
         body: sanitizedMessage,
         ref: ref || this.ref || undefined,
       });
@@ -397,7 +429,13 @@ export default class GitlabProxyManager {
       return this.postComment({
         newPath: change.new_path,
         oldPath: change.old_path,
-        newLine: firstAddedNewLine ?? 1,
+        newLine: derivedRange?.side === 'new' ? (derivedRange.start ?? (firstAddedNewLine ?? 1)) : (firstAddedNewLine ?? 1),
+        lineRange: derivedRange?.side === 'new' && derivedRange.end && derivedRange.start
+          ? {
+              start: { type: 'new', new_line: derivedRange.start, old_line: null },
+              end: { type: 'new', new_line: derivedRange.end, old_line: null },
+            }
+          : undefined,
         body: sanitizedMessage,
         ref: ref || this.ref || undefined,
       });
@@ -408,7 +446,13 @@ export default class GitlabProxyManager {
         return this.postComment({
           newPath: change.new_path,
           oldPath: change.old_path,
-          newLine: firstAddedNewLine,
+          newLine: derivedRange?.side === 'new' ? (derivedRange.start ?? firstAddedNewLine) : firstAddedNewLine,
+          lineRange: derivedRange?.side === 'new' && derivedRange.end && derivedRange.start
+            ? {
+                start: { type: 'new', new_line: derivedRange.start, old_line: null },
+                end: { type: 'new', new_line: derivedRange.end, old_line: null },
+              }
+            : undefined,
           body: sanitizedMessage,
           ref: ref || this.ref || undefined,
         });
@@ -417,7 +461,13 @@ export default class GitlabProxyManager {
         return this.postComment({
           newPath: change.new_path,
           oldPath: change.old_path,
-          oldLine: firstRemovedOldLine,
+          oldLine: derivedRange?.side === 'old' ? (derivedRange.start ?? firstRemovedOldLine) : firstRemovedOldLine,
+          lineRange: derivedRange?.side === 'old' && derivedRange.end && derivedRange.start
+            ? {
+                start: { type: 'old', new_line: null, old_line: derivedRange.start },
+                end: { type: 'old', new_line: null, old_line: derivedRange.end },
+              }
+            : undefined,
           body: sanitizedMessage,
           ref: ref || this.ref || undefined,
         });
@@ -430,6 +480,85 @@ export default class GitlabProxyManager {
         body: sanitizedMessage,
         ref: ref || this.ref || undefined,
       });
+    }
+  }
+
+  /**
+   * 从 AI 回复中推断多行范围。
+   * 1) 解析显式行号范围（L10-20 / lines 10-20 / 第10~20行）
+   * 2) 若无显式范围，提取首个代码块并在新文件内容中定位，得到起止行
+   */
+  private async deriveLineRangeFromMessage({ change, message }: { change: any; message: string }): Promise<{ side: 'new' | 'old'; start?: number; end?: number } | undefined> {
+    const text = stripThinkTags(message || '');
+    // 1) 显式范围
+    const m = text.match(/(?:L|lines?\s+|第)(\d+)\s*(?:-|~|到|—)\s*L?(\d+)\s*行?/i);
+    if (m) {
+      const a = parseInt(m[1], 10);
+      const b = parseInt(m[2], 10);
+      if (Number.isFinite(a) && Number.isFinite(b)) {
+        const start = Math.max(1, Math.min(a, b));
+        const end = Math.max(a, b);
+        // 修改/新文件默认按新增侧，删除文件按旧侧
+        const side: 'new' | 'old' = change.deleted_file ? 'old' : 'new';
+        return { side, start, end };
+      }
+    }
+
+    // 2) 代码块定位到新文件
+    const codeBlock = this.extractFirstCodeBlock(text);
+    if (!codeBlock) return undefined;
+
+    try {
+      const { headSha } = await this.getDiffRefsSafe();
+      if (!headSha || !change?.new_path) return undefined;
+      const fileText = await this.getRawFileContent({ filePath: change.new_path, sha: headSha });
+      const range = this.findSnippetRangeInText(codeBlock, fileText);
+      if (range) {
+        return { side: 'new', start: range.start, end: range.end };
+      }
+    } catch (e) {
+      console.warn('从代码块定位范围失败:', e);
+    }
+    return undefined;
+  }
+
+  // 提取首个 ``` 代码块内容
+  private extractFirstCodeBlock(text: string): string | undefined {
+    const m = text.match(/```[\s\S]*?\n([\s\S]*?)```/);
+    const content = m?.[1]?.trim();
+    if (!content) return undefined;
+    // 过长时截断，避免极端开销
+    return content.length > 4000 ? content.slice(0, 4000) : content;
+  }
+
+  // 在目标文本中寻找代码片段的行区间（尽量用前若干非空行做定位）
+  private findSnippetRangeInText(snippet: string, target: string): { start: number; end: number } | undefined {
+    const snippetLines = snippet.split(/\r?\n/).filter(l => l.trim().length > 0);
+    if (snippetLines.length === 0) return undefined;
+    // 尝试用前 3 行进行定位，逐步退化到 1 行
+    for (let k = Math.min(3, snippetLines.length); k >= 1; k--) {
+      const head = snippetLines.slice(0, k).join('\n');
+      const idx = target.indexOf(head);
+      if (idx >= 0) {
+        // 计算起始行号
+        const before = target.slice(0, idx);
+        const startLine = before.split(/\r?\n/).length; // 基于 1 的行号
+        // 估算结束行号：用整个片段行数
+        const endLine = startLine + snippetLines.length - 1;
+        return { start: startLine, end: Math.max(startLine, endLine) };
+      }
+    }
+    return undefined;
+  }
+
+  // 安全获取 diff 引用
+  private async getDiffRefsSafe(): Promise<{ headSha?: string; baseSha?: string; startSha?: string }> {
+    try {
+      const data = await this.sendMessage('getMrChanges');
+      const diffRefs = data?.diff_refs || {};
+      return { headSha: diffRefs.head_sha, baseSha: diffRefs.base_sha, startSha: diffRefs.start_sha };
+    } catch {
+      return {};
     }
   }
 }

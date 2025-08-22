@@ -74,7 +74,7 @@ import GitlabProxyManager from '../../task/gitlab-proxy';
 import { generateReview } from '../../task/agent';
 import { isOllamaModelAvailable } from '../../task/agent/agent';
 import { DEFAULT_OLLAMA_END_POINT } from '../../constants';
-import { stripThinkTags, isNoSuggestionMessage } from '../../utils/review';
+import { stripThinkTags, getNoSuggestionMatch } from '../../utils/review';
 
 const { t } = useI18n();
 
@@ -379,10 +379,19 @@ async function runAnalysisTask() {
                 context
             });
 
-            // 若 AI 表示“无建议”，跳过创建讨论
+            // 若 AI 表示“无建议”，跳过创建讨论，并输出命中详情
             const sanitized = stripThinkTags(message);
-            if (isNoSuggestionMessage(sanitized)) {
-                console.log('AI 返回无建议，跳过当前文件讨论:', change.new_path || change.old_path);
+            const noSugHit = getNoSuggestionMatch(sanitized);
+            if (noSugHit) {
+                console.log('AI 返回无建议，跳过当前文件讨论:', {
+                    file: change.new_path || change.old_path,
+                    patternIndex: noSugHit.index,
+                    pattern: noSugHit.pattern,
+                    matched: noSugHit.matched,
+                    normalized: noSugHit.normalized,
+                    original: noSugHit.original,
+                    rawOriginal: message,
+                });
                 skippedCount.value++;
                 continue;
             }
