@@ -110,6 +110,11 @@ async function analysis() {
 
 // 初始化
 async function initPopup() {
+  // 重置状态，确保每次都是重新检测
+  isLoading.value = true;
+  isGitLabRef.value = false;
+  isReviewPageRef.value = false;
+  
   // 获取当前活动标签页
   const tabs = await browser.tabs.query({
     active: true,
@@ -125,27 +130,38 @@ async function initPopup() {
       });
       if (response && response.isGitLab !== undefined) {
         updateStatus(response);
+      } else {
+        // 如果没有响应，设置为未满足状态
+        updateStatus({
+          isGitLab: false, isReviewPage: false, url: currentTab.url||'', title: currentTab.title||'',
+          timestamp: 0
+        });
       }
     } catch (error) {
       console.error("获取GitLab状态失败:", error);
-      // 从本地存储获取最后的检测状态
+      // 从本地存储获取最后的检测状态，但优先使用当前页面信息
       const result = await browser.storage.local.get("gitlabDetection");
       if (result.gitlabDetection) {
-        updateStatus(result.gitlabDetection);
+        // 检查存储的检测状态是否与当前页面匹配
+        if (result.gitlabDetection.url === currentTab.url) {
+          updateStatus(result.gitlabDetection);
+        } else {
+          // 如果URL不匹配，重新设置为未满足状态
+          updateStatus({
+            isGitLab: false, isReviewPage: false, url: currentTab.url||'', title: currentTab.title||'',
+            timestamp: 0
+          });
+        }
+      } else {
+        // 如果没有存储的状态，设置为未满足状态
+        updateStatus({
+          isGitLab: false, isReviewPage: false, url: currentTab.url||'', title: currentTab.title||'',
+          timestamp: 0
+        });
       }
     }
   }
 }
-onBeforeMount(() => {
-  document.addEventListener("DOMContentLoaded", initPopup);
-})
-onBeforeUpdate(() => {
-  document.removeEventListener("DOMContentLoaded", initPopup);
-  document.addEventListener("DOMContentLoaded", initPopup);
-})
-onBeforeUnmount(() => {
-  document.removeEventListener("DOMContentLoaded", initPopup);
-})
 
 // i18n：从存储同步语言，并监听设置更新
 const version = ref('');
@@ -161,11 +177,16 @@ const handleRuntimeMessage = (message: any) => {
     i18nLocale.value = message.settings.locale as any;
   }
 };
+
+// 每次弹窗显示时都重新检测
 onMounted(() => {
+  initPopup();
   syncLocaleFromSettings();
   version.value = (browser.runtime.getManifest?.() as any)?.version || '';
   try { browser.runtime.onMessage.addListener(handleRuntimeMessage); } catch {}
 });
+
+// 移除不必要的事件监听器
 onBeforeUnmount(() => {
   try { browser.runtime.onMessage.removeListener(handleRuntimeMessage); } catch {}
 });
@@ -318,6 +339,8 @@ onBeforeUnmount(() => {
   margin-right: 8px;
   color: var(--n-text-color-2);
 }
+
+
 
 .actions {
   display: flex;
