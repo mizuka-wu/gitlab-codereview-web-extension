@@ -95,36 +95,53 @@
 
           <template v-if="settings.aiAgent.current === 'openapi'">
             <NFormItem :label="$t('options.apiKey')">
-              <NInput v-model:value="openapiApiKey" type="password" :placeholder="$t('options.enterOpenAPIKey')"
-                style="width: 400px" />
+              <input 
+                v-model="openapiApiKey" 
+                type="password" 
+                :placeholder="$t('options.enterOpenAPIKey')"
+                style="width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" 
+              />
               <template #suffix>
                 <NText depth="3" style="font-size: 12px">{{ $t('options.optional') }}</NText>
               </template>
             </NFormItem>
 
             <NFormItem :label="$t('options.baseUrl')">
-              <NInput v-model:value="openapiBaseUrl" :placeholder="'http://localhost:8000'" style="width: 400px" />
+              <input 
+                v-model="openapiBaseUrl" 
+                :placeholder="'http://localhost:8000'" 
+                style="width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" 
+              />
               <template #suffix>
                 <NText depth="3" style="font-size: 12px">{{ $t('options.required') }}</NText>
               </template>
             </NFormItem>
 
             <NFormItem :label="$t('options.modelName')">
-              <NInput v-model:value="openapiModel" :placeholder="'default'" style="width: 240px" />
+              <input 
+                v-model="openapiModel" 
+                :placeholder="'default'" 
+                style="width: 240px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" 
+              />
               <template #suffix>
                 <NText depth="3" style="font-size: 12px">{{ $t('options.modelNameHint') }}</NText>
               </template>
             </NFormItem>
 
             <NFormItem :label="$t('options.timeout')">
-              <NInput v-model:value="openapiTimeout" type="number" :placeholder="'60000'" style="width: 200px" />
+              <input 
+                v-model="openapiTimeout" 
+                type="number" 
+                :placeholder="'60000'" 
+                style="width: 200px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" 
+              />
               <template #suffix>
                 <NText depth="3" style="font-size: 12px">ms</NText>
               </template>
             </NFormItem>
 
-            <!-- 高级配置折叠面板 -->
-            <NCollapse>
+                        <!-- 高级配置折叠面板 -->
+                        <NCollapse>
               <NCollapseItem :title="$t('options.advancedSettings')" name="advanced">
                 <NSpace vertical>
                   <!-- 认证类型 -->
@@ -167,14 +184,25 @@
                       <NText depth="3" style="font-size: 12px">{{ $t('options.jsonFormat') }}</NText>
                     </template>
                   </NFormItem>
-
-                  <!-- 测试连接按钮 -->
-                  <NFormItem>
-                    <NButton @click="testOpenAPI" size="small" tertiary>{{ $t('common.testConnection') }}</NButton>
-                  </NFormItem>
                 </NSpace>
               </NCollapseItem>
             </NCollapse>
+
+            <!-- 测试连接按钮 - 放在外面，不需要收起来 -->
+            <NFormItem>
+              <NButton 
+                @click="testOpenAPI" 
+                size="small" 
+                :loading="isTestingOpenAPI"
+                :disabled="!openapiBaseUrl || isTestingOpenAPI"
+              >
+                {{ isTestingOpenAPI ? '测试中...' : $t('common.testConnection') }}
+              </NButton>
+              <template #suffix>
+                <NText depth="3" style="font-size: 12px">测试 OpenAPI 兼容服务连接</NText>
+              </template>
+            </NFormItem>
+
           </template>
         </NSpace>
       </NCard>
@@ -278,6 +306,9 @@ const claudeModelOptions = [
 
 // 保存状态
 const isSaving = ref(false);
+
+// OpenAPI 测试状态
+const isTestingOpenAPI = ref(false);
 
 // 确保 Ollama 配置存在
 const ensureOllamaConfig = () => {
@@ -656,6 +687,9 @@ const testOllama = async () => {
 
 const testOpenAPI = async () => {
   try {
+    // 设置测试状态为 true
+    isTestingOpenAPI.value = true;
+    
     const config = settings.value.aiAgent.aiAgentConfig.openapi;
     if (!config?.baseUrl) {
       message.error('请先配置服务地址');
@@ -698,6 +732,9 @@ const testOpenAPI = async () => {
     console.error('测试 OpenAPI 服务失败:', e);
     const msg = (e as Error)?.message || '测试失败';
     message.error(String(msg));
+  } finally {
+    // 无论成功还是失败，都要重置测试状态为 false
+    isTestingOpenAPI.value = false;
   }
 };
 
@@ -730,8 +767,26 @@ const ensureHostPermissionForEndpoint = async (endpoint: string) => {
 const saveSettings = async () => {
   try {
     isSaving.value = true;
-    // 在保存前为自定义 Ollama 地址申请运行时主机权限
-    await ensureHostPermissionForEndpoint(ollamaEndpoint.value);
+    
+    // 根据当前选择的 AI 代理决定是否需要校验权限
+    const currentAgent = settings.value.aiAgent.current;
+    
+    if (currentAgent === 'ollama') {
+      // 只有选择 Ollama 时才校验 Ollama 配置和权限
+      await ensureHostPermissionForEndpoint(ollamaEndpoint.value);
+    } else if (currentAgent === 'openapi') {
+      // 对于 OpenAPI 兼容服务，校验必要的配置
+      const openapiConfig = settings.value.aiAgent.aiAgentConfig.openapi;
+      if (!openapiConfig?.baseUrl) {
+        throw new Error('请配置 OpenAPI 兼容服务的地址');
+      }
+      // 如果配置了自定义地址，也需要申请权限
+      if (openapiConfig.baseUrl !== 'http://localhost:8000') {
+        await ensureHostPermissionForEndpoint(openapiConfig.baseUrl);
+      }
+    }
+    // OpenAI 和 Claude 不需要额外的权限校验
+    
     await browser.storage.local.set({ settings: settings.value });
     // 广播设置更新，通知所有标签页与内容脚本
     try {
